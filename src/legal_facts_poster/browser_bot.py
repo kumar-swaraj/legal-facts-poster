@@ -1,8 +1,16 @@
 import contextlib
 import os
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Page, TimeoutError, sync_playwright
+from playwright.sync_api import (
+    Browser,
+    Page,
+    Playwright,
+    TimeoutError,
+    sync_playwright,
+)
+from playwright.sync_api import (
+    Error as PlaywrightError,
+)
 
 from .config import BASE_URL, HEADLESS, PASSWORD, SESSION_FILE, USERNAME
 
@@ -127,6 +135,41 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
     return selected_count
 
 
+def _launch_browser(p: Playwright, is_headless: bool) -> Browser | None:
+    """
+    Attempts to launch Playwright Chromium.
+    If the browser binary is missing, automatically downloads it via
+    'playwright install chromium' as a self-healing bootstrap.
+    """
+    try:
+        return p.chromium.launch(headless=is_headless)
+    except PlaywrightError as exc:
+        if "Executable doesn't exist" in str(exc) or "playwright install" in str(exc):
+            print(
+                "\n\033[33m⚡ Chromium browser binary not found.\033[0m\n"
+                "\033[36m⬇ Automatically downloading Chromium via Playwright (one-time setup)...\033[0m"
+            )
+            try:
+                import subprocess
+                import sys
+
+                subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
+                    check=True,
+                )
+                print(
+                    "  \033[32m✓ Chromium installed successfully! Resuming browser launch...\033[0m\n"
+                )
+                return p.chromium.launch(headless=is_headless)
+            except Exception as install_err:
+                print(
+                    f"\n\033[31m[Error] Automatic Chromium installation failed: {install_err}\033[0m\n"
+                    "\033[33mPlease manually run: 'playwright install chromium'\033[0m\n"
+                )
+                return None
+        raise
+
+
 def login_and_post(
     post_content: str, tags: list[str] | None = None, headless: bool | None = None
 ) -> bool:
@@ -138,16 +181,9 @@ def login_and_post(
 
     try:
         with sync_playwright() as p:
-            try:
-                browser = p.chromium.launch(headless=is_headless)
-            except PlaywrightError as exc:
-                if "Executable doesn't exist" in str(exc) or "playwright install" in str(exc):
-                    print(
-                        "\n\033[31m[Error] Playwright Chromium browser binary is not installed.\033[0m\n"
-                        "\033[33mPlease run 'playwright install chromium' to download the browser before first use.\033[0m\n"
-                    )
-                    return False
-                raise
+            browser = _launch_browser(p, is_headless)
+            if browser is None:
+                return False
 
             # Load stored session if available
             storage_path = SESSION_FILE if os.path.exists(SESSION_FILE) else None
