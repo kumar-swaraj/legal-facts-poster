@@ -16,6 +16,7 @@ from .config import (
     validate_config,
 )
 from .history import save_to_history
+from .notifier import notify_failure, notify_success, ping_healthcheck
 
 BOLD = "\033[1m"
 DIM = "\033[2m"
@@ -36,17 +37,21 @@ def run_single_post(fail_fast: bool = False, headless: bool | None = None) -> bo
     )
     print(f"{BOLD}{CYAN}══════════════════════════════════════════════════════════════{RESET}")
 
+    last_topic: str | None = None
     for attempt in range(1, MAX_RETRIES + 2):
         try:
             print(
                 f"\n{BOLD}[Attempt {attempt}/{MAX_RETRIES + 1}]{RESET} Generating AI legal fact..."
             )
             topic, post_html, tags = generate_new_fact()
+            last_topic = topic
             print(f"{BOLD}Topic:{RESET} '{topic}' | {BOLD}Tags:{RESET} {tags}")
 
             success = login_and_post(post_html, tags, headless=headless)
             if success:
                 save_to_history(topic)
+                notify_success(topic=topic, tags=tags)
+                ping_healthcheck()
                 print(
                     f"\n{BOLD}{GREEN}✓ Successfully posted and logged '{topic}' to history!{RESET}"
                 )
@@ -61,6 +66,7 @@ def run_single_post(fail_fast: bool = False, headless: bool | None = None) -> bo
                 time.sleep(RETRY_DELAY_SECONDS)
             else:
                 print(f"{RED}All retry attempts exhausted for this cycle.{RESET}")
+                notify_failure(error=str(e), topic=last_topic)
                 if fail_fast:
                     sys.exit(1)
                 return False

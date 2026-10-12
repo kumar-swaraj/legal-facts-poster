@@ -42,3 +42,13 @@ def test_provider_defaults_structure():
         assert "base_url" in data
         assert "models" in data
         assert "key_env" in data
+
+
+def test_reload_config_webhook(monkeypatch):
+    import legal_facts_poster.config as cfg
+
+    monkeypatch.setenv("WEBHOOK_URL", "https://discord.com/api/webhooks/test/123")
+    monkeypatch.setenv("NOTIFY_ON", "failures_only")
+    cfg.reload_config()
+    assert cfg.WEBHOOK_URL == "https://discord.com/api/webhooks/test/123"
+    assert cfg.NOTIFY_ON == "failures_only"

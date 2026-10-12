@@ -141,6 +141,13 @@ def run_wizard() -> None:
     headless_resp = input(h_prompt).strip().lower()
     headless_val = "true" if headless_resp in ("y", "yes") else "false"
 
+    # 7. Optional Alerting Webhook URL (Discord / Slack / Generic)
+    existing_webhook = os.getenv("WEBHOOK_URL", "")
+    w_prompt = (
+        f"{BOLD}6. Discord / Webhook Alert URL{RESET} {DIM}(optional, press Enter to skip){RESET}: "
+    )
+    webhook_val = input(w_prompt).strip() or existing_webhook
+
     # Save to ~/.config/legal-facts-poster/.env
     os.makedirs(config_dir, exist_ok=True)
     with open(env_file, "w", encoding="utf-8") as f:
@@ -160,6 +167,9 @@ def run_wizard() -> None:
         f.write("JITTER_MAX_MINUTES=10\n")
         f.write("MAX_RETRIES=2\n")
         f.write("RETRY_DELAY_SECONDS=60\n")
+        if webhook_val:
+            f.write(f'WEBHOOK_URL="{webhook_val}"\n')
+            f.write('NOTIFY_ON="all"\n')
 
     # Set secure permissions (read/write only by owner)
     with contextlib.suppress(Exception):

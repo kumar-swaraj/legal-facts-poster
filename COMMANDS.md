@@ -179,6 +179,9 @@ uv run python -c "from legal_facts_poster.ai_generator import generate_new_fact;
 # Test config resolution (which provider and API key are active)
 uv run python -c "from legal_facts_poster.config import AI_PROVIDER, AI_MODEL, USERNAME, BASE_URL; print(f'Provider: {AI_PROVIDER} | Model: {AI_MODEL} | User: {USERNAME} | URL: {BASE_URL}')"
 
+# Test webhook alert dispatch (sends test card to Discord / Telegram)
+uv run python -c "from legal_facts_poster.notifier import notify_success; notify_success('Test Alert: Connectivity Verified', tags=['Test', 'Alert'])"
+
 # View topic history (preventing duplicates)
 cat posted_history.txt
 
