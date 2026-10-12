@@ -1,0 +1,49 @@
+[project]
+name = "legal-facts-poster"
+version = "0.1.0"
+description = "Autonomous AI agent and browser automation worker for publishing Indian legal insights"
+readme = "README.md"
+authors = [
+    { name = "Kumar Swaraj", email = "123369109+kumar-swaraj@users.noreply.github.com" }
+]
+license = { text = "MIT" }
+keywords = [
+    "ai-agent",
+    "browser-automation",
+    "playwright",
+    "legal-facts",
+    "indian-law",
+    "autonomous-agent",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Communications",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.20.0",
+    "playwright>=1.40.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "schedule>=1.2.0",
+]
+
+[project.scripts]
+legal-post = "legal_facts_poster.cli:main"
+legal-facts-poster = "legal_facts_poster.cli:main"
+legal-config = "legal_facts_poster.wizard:run_wizard"
+post-once = "legal_facts_poster.cli:post_once_cli"
+poster = "legal_facts_poster.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
