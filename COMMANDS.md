@@ -13,6 +13,11 @@ A complete, categorized cheat-sheet of all commands available in `legal-facts-po
 | **Publish a single post immediately** | `post-once` *(or `python post_once.py`)* |
 | **Publish silently in the background** | `post-once --headless` |
 | **Start autonomous recurring posting** | `legal-post` *(or `python main.py`)* |
+| **Check installed version** | `legal-post --version` |
+| **Run unit test suite** | `uv run pytest` |
+| **Run in Docker (background daemon)** | `docker compose up -d` |
+| **View Docker daemon logs** | `docker compose logs -f` |
+| **Stop Docker daemon** | `docker compose down` |
 | **Run interactive setup wizard** | `legal-config` *(or `legal-post --config`)* |
 | **Generate a `.env` template in current directory** | `legal-post --init-env` |
 
@@ -25,7 +30,10 @@ uv tool install git+https://github.com/kumar-swaraj/legal-facts-poster.git
 # 2. Install Playwright browser binary (one-time requirement)
 uv run playwright install chromium
 
-# 3. Update to latest commit anytime
+# 3. Check version
+legal-post --version
+
+# 4. Update to latest commit anytime
 uv tool upgrade legal-facts-poster
 ```
 
@@ -53,6 +61,9 @@ post-once
 # Headless mode (runs silently in background)
 post-once --headless
 
+# Display package version
+post-once --version
+
 # Use a specific .env file
 post-once --env-file /path/to/.env
 
@@ -79,6 +90,9 @@ legal-post --skip-immediate
 
 # Run once and exit (identical to post-once)
 legal-post --once
+
+# Display package version
+legal-post --version
 ```
 
 ---
@@ -98,9 +112,9 @@ legal-post --env-file ./production.env
 
 ---
 
-## 5. Development, Linting & Type Checking
+## 5. Development, Testing, Linting & Type Checking
 
-Powered by the **Astral** ecosystem (`uv`, `Ruff`, `MyPy`):
+Powered by the **Astral** ecosystem (`uv`, `pytest`, `Ruff`, `MyPy`):
 
 ```bash
 # Install package with developer tools
@@ -108,6 +122,12 @@ uv pip install -e ".[dev]"
 
 # Install Playwright browser dependencies
 uv run playwright install chromium
+
+# Run automated unit test suite
+uv run pytest
+
+# Run tests with verbose output
+uv run pytest -v
 
 # Check and auto-fix linting issues (Ruff)
 uv run ruff check . --fix
@@ -119,15 +139,38 @@ uv run ruff format .
 uv run ruff format --check .
 
 # Run static type checking (MyPy)
-uv run mypy src/
+uv run mypy src/ tests/
 
-# Run complete linting + formatting + type check suite in one line
-uv run ruff check . && uv run ruff format --check . && uv run mypy src/
+# Run complete linting + formatting + type check + test suite in one line
+uv run ruff check . && uv run ruff format --check . && uv run mypy src/ tests/ && uv run pytest
 ```
 
 ---
 
-## 6. Diagnostics & Scratch Testing
+## 6. Docker & Container Deployment
+
+Run 24/7 autonomously on a VPS, server, or local Docker daemon without installing Python or browser binaries on the host:
+
+```bash
+# 1. Build and run the daemon in the background
+docker compose up -d
+
+# 2. Stream live execution and posting logs
+docker compose logs -f
+
+# 3. Check container status
+docker compose ps
+
+# 4. Stop the container
+docker compose down
+
+# Optional: Run a single post directly via Docker
+docker compose run --rm poster post-once --headless
+```
+
+---
+
+## 7. Diagnostics & Scratch Testing
 
 ```bash
 # Test AI generation logic directly in terminal (without opening browser)
@@ -145,16 +188,17 @@ rm session.json
 
 ---
 
-## 7. Git & Publishing Commands
+## 8. Releases & Version Publishing
+
+Publishing new releases is fully automated through GitHub Actions:
 
 ```bash
-# Check working tree status
+# 1. Ensure all changes are committed and pushed
 git status
 
-# Add remote GitHub repository
-git remote add origin https://github.com/<your-username>/legal-facts-poster.git
+# 2. Tag a new semantic version
+git tag -s v0.1.0 -m "Release v0.1.0: unit tests, containerization, and release automation"
 
-# Set main branch and push
-git branch -M main
-git push -u origin main
+# 3. Push the tag to trigger GitHub Release workflow (.github/workflows/release.yml)
+git push origin v0.1.0
 ```

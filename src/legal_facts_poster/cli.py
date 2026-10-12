@@ -1,6 +1,7 @@
 import argparse
 import sys
 
+from . import __version__
 from .config import (
     POST_INTERVAL_HOURS,
     init_env_template,
@@ -13,6 +14,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         prog="legal-post", description="Automated AI Legal Insights Poster for Community Feed."
     )
+    parser.add_argument("--version", "-v", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--once", "-1", action="store_true", help="Publish a single post immediately and exit."
     )

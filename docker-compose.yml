@@ -1,0 +1,16 @@
+services:
+  poster:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: legal-facts-poster
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - HEADLESS=true
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Persist session login tokens and posting history across container rebuilds
+      - ./posted_history.txt:/app/posted_history.txt
+      - ./session.json:/app/session.json

@@ -15,6 +15,17 @@ from playwright.sync_api import (
 from .config import BASE_URL, HEADLESS, PASSWORD, SESSION_FILE, USERNAME
 
 
+def _save_session_state(context, path: str) -> None:
+    """Saves session storage state and enforces owner-only permissions (0600) on Unix."""
+    try:
+        context.storage_state(path=path)
+        with contextlib.suppress(OSError):
+            os.chmod(path, 0o600)
+        print(f"Session saved to '{path}' (permissions: 0600).")
+    except Exception as e:
+        print(f"Notice: Could not save session state: {e}")
+
+
 def _ensure_authenticated(page: Page, context) -> bool:
     """
     Checks if session is authenticated. If not, performs login and saves storage state.
@@ -62,11 +73,7 @@ def _ensure_authenticated(page: Page, context) -> bool:
         print("Notice: URL wait timed out, continuing...")
 
     # Save session storage state for subsequent runs
-    try:
-        context.storage_state(path=SESSION_FILE)
-        print(f"Session saved to '{SESSION_FILE}'.")
-    except Exception as e:
-        print(f"Notice: Could not save session state: {e}")
+    _save_session_state(context, SESSION_FILE)
 
     # Navigate to community if not already there
     if "/community" not in page.url:
@@ -279,8 +286,7 @@ def login_and_post(
                 page.locator("text='Create Post'").wait_for(state="hidden", timeout=15000)
                 print("  \033[32m✓ Create Post modal confirmed! Post is now live.\033[0m")
                 # Save fresh session state after successful post
-                with contextlib.suppress(Exception):
-                    context.storage_state(path=SESSION_FILE)
+                _save_session_state(context, SESSION_FILE)
                 page.wait_for_timeout(3000)
                 browser.close()
                 return True
