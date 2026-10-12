@@ -1,4 +1,5 @@
 import secrets
+import signal
 import sys
 import time
 
@@ -95,8 +96,22 @@ def run_schedule_loop(
             )
             return
 
+    stop_requested = False
+
+    def handle_shutdown(signum, frame):  # type: ignore[no-untyped-def]
+        nonlocal stop_requested
+        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+        print(f"\n{YELLOW}Received {sig_name}. Exiting agent gracefully. Goodbye!{RESET}")
+        stop_requested = True
+
+    signal.signal(signal.SIGINT, handle_shutdown)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, handle_shutdown)
+
     def scheduled_job():
         nonlocal posts_completed
+        if stop_requested:
+            return
 
         # Apply humanized jitter if enabled
         if ENABLE_JITTER and JITTER_MAX_MINUTES > 0:
@@ -104,7 +119,13 @@ def run_schedule_loop(
             print(
                 f"{YELLOW}Applying jitter delay: waiting {jitter_seconds // 60}m {jitter_seconds % 60}s before posting...{RESET}"
             )
-            time.sleep(jitter_seconds)
+            for _ in range(jitter_seconds):
+                if stop_requested:
+                    return
+                time.sleep(1)
+
+        if stop_requested:
+            return
 
         if run_single_post(fail_fast=False, headless=headless):
             posts_completed += 1
@@ -122,9 +143,10 @@ def run_schedule_loop(
     )
 
     try:
-        while True:
+        while not stop_requested:
             schedule.run_pending()
             time.sleep(1)
     except KeyboardInterrupt:
         print(f"\n{YELLOW}Exiting agent gracefully upon user request (Ctrl+C). Goodbye!{RESET}")
+    finally:
         sys.exit(0)

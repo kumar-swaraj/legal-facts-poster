@@ -25,6 +25,10 @@ COPY README.md LICENSE ./
 # Re-install package in editable mode to register CLI console scripts
 RUN uv pip install --system --no-deps -e .
 
+# Ensure ownership and configure non-root user (pwuser is pre-created by Microsoft Playwright image)
+RUN chown -R pwuser:pwuser /app
+USER pwuser
+
 # Default persistent volume mount point
 VOLUME ["/app/data"]
 

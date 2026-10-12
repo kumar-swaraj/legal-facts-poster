@@ -34,21 +34,32 @@
 
 ---
 
-## Installation
+## Installation & Quick Start
 
-### With `pip`:
+### 1. Isolated CLI Install (Recommended)
+Install the standalone CLI globally in an isolated environment without polluting your system Python:
 ```bash
-pip install .
+uv tool install git+https://github.com/kumar-swaraj/legal-facts-poster.git
+uv run playwright install chromium
+```
+Check your installed version:
+```bash
+legal-post --version
 ```
 
-### With `uv`:
+### 2. Ephemeral Zero-Install (On-Demand via `uvx`)
+Run directly without installing any packages:
 ```bash
-uv pip install -e .
+uvx --from git+https://github.com/kumar-swaraj/legal-facts-poster.git post-once --help
 ```
 
-Ensure Playwright browsers are installed:
+### 3. Local Development (`uv` / `pip`)
 ```bash
-playwright install chromium
+# Clone and install with dev tools
+git clone https://github.com/kumar-swaraj/legal-facts-poster.git
+cd legal-facts-poster
+uv pip install -e ".[dev]"
+uv run playwright install chromium
 ```
 
 ---
@@ -178,19 +189,47 @@ legal-post --help
 
 ---
 
-## Developer Tooling & Quality Checks
+## Docker & Cloud Deployment
 
-This project uses the modern [Astral](https://docs.astral.sh) toolchain (`uv`, `Ruff`, `MyPy`) for zero-friction quality assurance:
+Deploy the autonomous posting daemon 24/7 on a VPS, server, or cloud VM with zero local Python or browser installation:
 
 ```bash
-# Check code style & lints
+# 1. Start daemon in background (auto-restarts on reboot)
+docker compose up -d
+
+# 2. View live execution logs
+docker compose logs -f
+
+# 3. Stop container
+docker compose down
+```
+
+> **Security Hardened**: The container image drops root privileges and runs under the unprivileged `pwuser` account with persistent volume mounts for `session.json` and `posted_history.txt`. Pre-built images are published to `ghcr.io/kumar-swaraj/legal-facts-poster:latest`.
+
+---
+
+## Developer Tooling & Quality Checks
+
+This project uses the modern **Astral** toolchain (`uv`, `pytest`, `Ruff`, `MyPy`) for zero-friction quality assurance:
+
+```bash
+# Run automated unit test suite
+uv run pytest
+
+# Check code style & linter rules (Ruff)
 uv run ruff check . --fix
 
-# Format code
+# Format code (Ruff)
 uv run ruff format .
 
-# Static type check
-uv run mypy src/
+# Check formatting without modifying files
+uv run ruff format --check .
+
+# Static type checking across source and tests (MyPy)
+uv run mypy src/ tests/
+
+# Full verification suite
+uv run ruff check . && uv run ruff format --check . && uv run mypy src/ tests/ && uv run pytest
 ```
 
 ---
@@ -199,23 +238,35 @@ uv run mypy src/
 
 ```
 legal-facts-poster/
-├── COMMANDS.md           # Categorized command cheat-sheet
-├── LICENSE               # MIT Open Source License
-├── README.md             # Project documentation & guides
-├── pyproject.toml        # PEP 517/621 package metadata & Ruff/MyPy config
-├── .env.example          # Environment variables template
-├── main.py               # Minimal launcher for scheduled posting
-├── post_once.py          # Dedicated single-post execution script
-├── posted_history.txt    # History log preventing duplicate legal topics
+├── .github/
+│   ├── dependabot.yml       # Automated dependency security scanning
+│   └── workflows/
+│       ├── ci.yml            # Automated CI linting, typing & unit tests
+│       └── release.yml       # Auto-release & GHCR Docker publish on v* tags
+├── Dockerfile                # Production non-root container with Playwright
+├── docker-compose.yml        # Docker service definition with volume persistence
+├── COMMANDS.md               # Categorized command cheat-sheet
+├── SECURITY.md               # Security architecture & vulnerability policy
+├── LICENSE                   # MIT Open Source License
+├── README.md                 # Project documentation & guides
+├── pyproject.toml            # PEP 517/621 package metadata & quality configs
+├── .env.example              # Environment variables template
+├── tests/                    # Automated pytest suite (CLI, config, history, categories)
 └── src/
     └── legal_facts_poster/
-        ├── __init__.py   # Package interface & exports
-        ├── config.py     # Multi-provider environment loading & validation
-        ├── categories.py # Indian law domain definitions & rotation logic
-        ├── history.py    # History persistence manager
-        ├── ai_generator.py # Multi-model structured fact generation & HTML formatting
-        ├── browser_bot.py  # Playwright browser automation & session persistence
-        ├── runner.py     # Task orchestration, retry logic & schedule loop
-        ├── wizard.py     # Interactive terminal setup wizard
-        └── cli.py        # CLI argument parsing (argparse) & command dispatcher
+        ├── __init__.py       # Package interface & version export (__version__)
+        ├── config.py         # Multi-provider environment loading & validation
+        ├── categories.py     # Indian law domain definitions & rotation logic
+        ├── history.py        # History persistence manager
+        ├── ai_generator.py   # Multi-model structured fact generation & HTML formatting
+        ├── browser_bot.py    # Playwright browser automation & session persistence (0600)
+        ├── runner.py         # Task orchestration, SIGTERM handling & schedule loop
+        ├── wizard.py         # Interactive terminal setup wizard
+        └── cli.py            # CLI argument parsing (argparse) & command dispatcher
 ```
+
+---
+
+## Security
+
+Please see [**SECURITY.md**](SECURITY.md) for supported versions, our defense-in-depth security model, and how to report vulnerabilities responsibly.

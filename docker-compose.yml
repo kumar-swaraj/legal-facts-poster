@@ -1,5 +1,6 @@
 services:
   poster:
+    image: ghcr.io/kumar-swaraj/legal-facts-poster:latest
     build:
       context: .
       dockerfile: Dockerfile
