@@ -13,6 +13,8 @@
 2. **The Hands (Browser Automation Bot)**: Uses Playwright to authenticate, persist login sessions (`session.json`), navigate dynamic platform UIs, insert rich HTML (`<strong>`, `<ul><li>`, `<em>`) into WYSIWYG editors, and select community tags from interactive comboboxes.
 3. **The Engine (Autonomous Scheduler & CLI)**: Operates either as an immediate single-post runner (`post-once`) or an autonomous recurring daemon (`legal-post`) with anti-bot randomized timing jitter (±5–10 min) and auto-retry resilience.
 
+> 📖 **Need a quick cheat-sheet?** Check out the complete [**Command Reference Guide (COMMANDS.md)**](COMMANDS.md).
+
 ---
 
 ## Features
@@ -171,23 +173,44 @@ legal-post --help
 
 ---
 
+## Developer Tooling & Quality Checks
+
+This project uses the modern [Astral](https://docs.astral.sh) toolchain (`uv`, `Ruff`, `MyPy`) for zero-friction quality assurance:
+
+```bash
+# Check code style & lints
+uv run ruff check . --fix
+
+# Format code
+uv run ruff format .
+
+# Static type check
+uv run mypy src/
+```
+
+---
+
 ## Project Architecture
 
 ```
 legal-facts-poster/
+├── COMMANDS.md           # Categorized command cheat-sheet
+├── LICENSE               # MIT Open Source License
+├── README.md             # Project documentation & guides
+├── pyproject.toml        # PEP 517/621 package metadata & Ruff/MyPy config
 ├── .env.example          # Environment variables template
-├── pyproject.toml        # Standard PEP 517/621 package & CLI configuration
 ├── main.py               # Minimal launcher for scheduled posting
 ├── post_once.py          # Dedicated single-post execution script
 ├── posted_history.txt    # History log preventing duplicate legal topics
 └── src/
     └── legal_facts_poster/
         ├── __init__.py   # Package interface & exports
-        ├── config.py     # Environment variable loading & validation
+        ├── config.py     # Multi-provider environment loading & validation
         ├── categories.py # Indian law domain definitions & rotation logic
         ├── history.py    # History persistence manager
-        ├── ai_generator.py # Gemini AI structured fact generation & HTML formatting
+        ├── ai_generator.py # Multi-model structured fact generation & HTML formatting
         ├── browser_bot.py  # Playwright browser automation & session persistence
         ├── runner.py     # Task orchestration, retry logic & schedule loop
+        ├── wizard.py     # Interactive terminal setup wizard
         └── cli.py        # CLI argument parsing (argparse) & command dispatcher
 ```
