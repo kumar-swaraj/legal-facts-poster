@@ -1,6 +1,11 @@
 # Legal Facts Poster (`legal-facts-poster`)
 > **An Autonomous AI Agent & Browser Automation Worker for Legal Community Feeds**
 
+[![CI](https://github.com/kumar-swaraj/legal-facts-poster/actions/workflows/ci.yml/badge.svg)](https://github.com/kumar-swaraj/legal-facts-poster/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 `legal-facts-poster` is an autonomous AI agent worker that bridges large language model intelligence with headless browser automation. It continuously synthesizes educational legal insights across Indian jurisprudence and publishes them directly to community platforms with native rich HTML formatting, persistent sessions, duplicate prevention memory, and humanized jitter scheduling.
 
 ---
