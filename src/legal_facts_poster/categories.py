@@ -1,4 +1,4 @@
-import random
+import secrets
 
 LEGAL_CATEGORIES = [
     {
@@ -26,4 +26,4 @@ LEGAL_CATEGORIES = [
 
 def get_next_category() -> dict[str, str]:
     """Selects a legal category to ensure rich topic rotation across posts."""
-    return random.choice(LEGAL_CATEGORIES)
+    return secrets.choice(LEGAL_CATEGORIES)

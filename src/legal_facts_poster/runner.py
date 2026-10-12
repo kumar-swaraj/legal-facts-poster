@@ -1,4 +1,4 @@
-import random
+import secrets
 import sys
 import time
 
@@ -100,7 +100,7 @@ def run_schedule_loop(
 
         # Apply humanized jitter if enabled
         if ENABLE_JITTER and JITTER_MAX_MINUTES > 0:
-            jitter_seconds = random.randint(0, JITTER_MAX_MINUTES * 60)
+            jitter_seconds = secrets.randbelow(JITTER_MAX_MINUTES * 60 + 1)
             print(
                 f"{YELLOW}Applying jitter delay: waiting {jitter_seconds // 60}m {jitter_seconds % 60}s before posting...{RESET}"
             )

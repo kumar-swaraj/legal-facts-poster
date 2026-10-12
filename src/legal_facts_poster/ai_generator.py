@@ -73,7 +73,7 @@ def _generate_via_anthropic(api_key: str, model_name: str, prompt: str) -> Legal
             "content-type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
         data = json.loads(resp.read().decode("utf-8"))
         raw_text = data["content"][0]["text"].strip()
         if raw_text.startswith("```"):

@@ -139,12 +139,33 @@ def _launch_browser(p: Playwright, is_headless: bool) -> Browser | None:
     """
     Attempts to launch Playwright Chromium.
     If the browser binary is missing, automatically downloads it via
-    'playwright install chromium' as a self-healing bootstrap.
+    'playwright install chromium' as a self-healing bootstrap, while honoring
+    security opt-outs and timeout bounds.
     """
     try:
         return p.chromium.launch(headless=is_headless)
     except PlaywrightError as exc:
-        if "Executable doesn't exist" in str(exc) or "playwright install" in str(exc):
+        err_msg = str(exc)
+        if "Executable doesn't exist" in err_msg or "playwright install" in err_msg:
+            # Respect environment opt-outs for air-gapped or restricted security policies
+            skip_download = os.getenv("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "").lower() in (
+                "1",
+                "true",
+            )
+            auto_install = os.getenv("AUTO_INSTALL_PLAYWRIGHT", "true").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+
+            if skip_download or not auto_install:
+                print(
+                    "\n\033[31m[Security Policy] Automatic browser binary download is disabled.\033[0m\n"
+                    "\033[33mPlaywright Chromium binary must be pre-installed.\033[0m\n"
+                    "\033[33mPlease run 'playwright install chromium' before running.\033[0m\n"
+                )
+                return None
+
             print(
                 "\n\033[33m⚡ Chromium browser binary not found.\033[0m\n"
                 "\033[36m⬇ Automatically downloading Chromium via Playwright (one-time setup)...\033[0m"
@@ -153,14 +174,22 @@ def _launch_browser(p: Playwright, is_headless: bool) -> Browser | None:
                 import subprocess
                 import sys
 
+                # Invokes strictly within current interpreter; no shell=True; 5-minute timeout bound
                 subprocess.run(
                     [sys.executable, "-m", "playwright", "install", "chromium"],
                     check=True,
+                    timeout=300,
                 )
                 print(
                     "  \033[32m✓ Chromium installed successfully! Resuming browser launch...\033[0m\n"
                 )
                 return p.chromium.launch(headless=is_headless)
+            except subprocess.TimeoutExpired:
+                print(
+                    "\n\033[31m[Error] Timed out waiting for Playwright Chromium download (5 min limit).\033[0m\n"
+                    "\033[33mPlease run 'playwright install chromium' manually.\033[0m\n"
+                )
+                return None
             except Exception as install_err:
                 print(
                     f"\n\033[31m[Error] Automatic Chromium installation failed: {install_err}\033[0m\n"
