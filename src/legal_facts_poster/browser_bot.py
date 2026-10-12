@@ -1,6 +1,7 @@
 import contextlib
 import os
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, TimeoutError, sync_playwright
 
 from .config import BASE_URL, HEADLESS, PASSWORD, SESSION_FILE, USERNAME
@@ -137,7 +138,16 @@ def login_and_post(
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=is_headless)
+            try:
+                browser = p.chromium.launch(headless=is_headless)
+            except PlaywrightError as exc:
+                if "Executable doesn't exist" in str(exc) or "playwright install" in str(exc):
+                    print(
+                        "\n\033[31m[Error] Playwright Chromium browser binary is not installed.\033[0m\n"
+                        "\033[33mPlease run 'playwright install chromium' to download the browser before first use.\033[0m\n"
+                    )
+                    return False
+                raise
 
             # Load stored session if available
             storage_path = SESSION_FILE if os.path.exists(SESSION_FILE) else None

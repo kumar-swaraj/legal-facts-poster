@@ -8,11 +8,26 @@ A complete, categorized cheat-sheet of all commands available in `legal-facts-po
 
 | Task | Command |
 | :--- | :--- |
+| **Install CLI globally (isolated sandbox)** | `uv tool install git+https://github.com/kumar-swaraj/legal-facts-poster.git` |
+| **Run ephemerally (zero install)** | `uvx --from git+https://github.com/kumar-swaraj/legal-facts-poster.git post-once --help` |
 | **Publish a single post immediately** | `post-once` *(or `python post_once.py`)* |
 | **Publish silently in the background** | `post-once --headless` |
 | **Start autonomous recurring posting** | `legal-post` *(or `python main.py`)* |
 | **Run interactive setup wizard** | `legal-config` *(or `legal-post --config`)* |
 | **Generate a `.env` template in current directory** | `legal-post --init-env` |
+
+### Standalone Installation (`uv tool` / `pipx`)
+
+```bash
+# 1. Install CLI in an isolated sandbox with global PATH access
+uv tool install git+https://github.com/kumar-swaraj/legal-facts-poster.git
+
+# 2. Install Playwright browser binary (one-time requirement)
+uv run playwright install chromium
+
+# 3. Update to latest commit anytime
+uv tool upgrade legal-facts-poster
+```
 
 ---
 

@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Kumar Swaraj", email = "123369109+kumar-swaraj@users.noreply.github.com" }
 ]
-license = { text = "MIT" }
+license = "MIT"
 keywords = [
     "ai-agent",
     "browser-automation",
@@ -20,7 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Communications",
     "Topic :: Internet :: WWW/HTTP :: Browsers",
@@ -33,6 +32,11 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "schedule>=1.2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kumar-swaraj/legal-facts-poster"
+Repository = "https://github.com/kumar-swaraj/legal-facts-poster"
+Issues = "https://github.com/kumar-swaraj/legal-facts-poster/issues"
 
 [project.optional-dependencies]
 dev = [
