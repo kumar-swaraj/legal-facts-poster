@@ -5,11 +5,12 @@ Usage:
     python post_once.py
     python post_once.py --headless
 """
-import sys
+
 import os
+import sys
 
 # Add 'src' directory to path for local development and direct execution
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
 
 from legal_facts_poster.cli import post_once_cli
 

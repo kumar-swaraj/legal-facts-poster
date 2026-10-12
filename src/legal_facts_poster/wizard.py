@@ -1,7 +1,8 @@
-import os
-import sys
+import contextlib
 import getpass
-from .config import reload_config, PROVIDER_DEFAULTS
+import os
+
+from .config import PROVIDER_DEFAULTS, reload_config
 
 # ANSI Color Codes
 BOLD = "\033[1m"
@@ -24,6 +25,7 @@ PROVIDERS = [
     ("openrouter", "OpenRouter (Claude, GPT, DeepSeek, etc.)", "https://openrouter.ai/keys"),
     ("custom", "Custom / Local (Ollama, vLLM, private proxy)", "Local / Private endpoint"),
 ]
+
 
 def run_wizard() -> None:
     """
@@ -57,8 +59,8 @@ def run_wizard() -> None:
     # 2. Platform Password
     p_prompt = f"{BOLD}2. Platform Password{RESET} {DIM}(hidden while typing){RESET}: "
     password = getpass.getpass(p_prompt).strip()
-    if not password and os.getenv("MY_SITE_PASSWORD"):
-        password = os.getenv("MY_SITE_PASSWORD")
+    if not password:
+        password = os.getenv("MY_SITE_PASSWORD") or ""
     while not password:
         print(f"  {RED}✕ Password cannot be empty.{RESET}")
         password = getpass.getpass(p_prompt).strip()
@@ -71,7 +73,7 @@ def run_wizard() -> None:
             default_idx = i
         marker = f"{GREEN}▶{RESET} " if p_id == existing_provider else "  "
         print(f"{marker}{CYAN}[{i}]{RESET} {BOLD}{p_name}{RESET} {DIM}({p_url}){RESET}")
-    
+
     sel_prompt = f"\nSelect provider {DIM}[1-9, default: {default_idx}]{RESET}: "
     sel_input = input(sel_prompt).strip()
     try:
@@ -111,7 +113,7 @@ def run_wizard() -> None:
             k_prompt = f"{BOLD}{key_label}{RESET} {DIM}[{masked}]{RESET}: "
         else:
             k_prompt = f"{BOLD}{key_label}{RESET} {DIM}(from {chosen_url}){RESET}: "
-        
+
         ai_key = getpass.getpass(k_prompt).strip()
         if not ai_key and chosen_provider == existing_provider and existing_ai_key:
             ai_key = existing_ai_key
@@ -122,7 +124,9 @@ def run_wizard() -> None:
         # Optional model override
         def_models = PROVIDER_DEFAULTS.get(chosen_provider, {}).get("models", [])
         def_model = def_models[0] if def_models else "default"
-        m_prompt = f"{BOLD}Model Name Override{RESET} {DIM}[Enter for default: {def_model}]{RESET}: "
+        m_prompt = (
+            f"{BOLD}Model Name Override{RESET} {DIM}[Enter for default: {def_model}]{RESET}: "
+        )
         m_resp = input(m_prompt).strip()
         ai_model = m_resp if m_resp else ""
 
@@ -150,7 +154,7 @@ def run_wizard() -> None:
         if ai_base_url:
             f.write(f'AI_BASE_URL="{ai_base_url}"\n')
         f.write(f'BASE_URL="{base_url}"\n')
-        f.write(f'HEADLESS={headless_val}\n')
+        f.write(f"HEADLESS={headless_val}\n")
         f.write("POST_INTERVAL_HOURS=4.0\n")
         f.write("ENABLE_JITTER=true\n")
         f.write("JITTER_MAX_MINUTES=10\n")
@@ -158,10 +162,8 @@ def run_wizard() -> None:
         f.write("RETRY_DELAY_SECONDS=60\n")
 
     # Set secure permissions (read/write only by owner)
-    try:
+    with contextlib.suppress(Exception):
         os.chmod(env_file, 0o600)
-    except Exception:
-        pass
 
     reload_config(env_file)
 
@@ -169,8 +171,11 @@ def run_wizard() -> None:
     print(f"{DIM}Saved to: {env_file} (secured with 0600 permissions){RESET}\n")
     print(f"{BOLD}Configured AI Provider:{RESET} {CYAN}{chosen_name}{RESET}")
     print(f"{BOLD}You can now run:{RESET}")
-    print(f"  {CYAN}post-once{RESET}       {DIM}# Publish a single legal insight immediately{RESET}")
+    print(
+        f"  {CYAN}post-once{RESET}       {DIM}# Publish a single legal insight immediately{RESET}"
+    )
     print(f"  {CYAN}legal-post{RESET}      {DIM}# Start autonomous recurring posting loop{RESET}\n")
+
 
 if __name__ == "__main__":
     run_wizard()

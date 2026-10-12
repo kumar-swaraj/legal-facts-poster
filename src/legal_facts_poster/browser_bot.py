@@ -1,7 +1,10 @@
+import contextlib
 import os
-import time
-from playwright.sync_api import sync_playwright, TimeoutError, Page
-from .config import USERNAME, PASSWORD, BASE_URL, HEADLESS, SESSION_FILE
+
+from playwright.sync_api import Page, TimeoutError, sync_playwright
+
+from .config import BASE_URL, HEADLESS, PASSWORD, SESSION_FILE, USERNAME
+
 
 def _ensure_authenticated(page: Page, context) -> bool:
     """
@@ -17,12 +20,12 @@ def _ensure_authenticated(page: Page, context) -> bool:
             page.goto(community_url, wait_until="networkidle", timeout=20000)
         except TimeoutError:
             page.goto(community_url, wait_until="domcontentloaded")
-            
+
         page.wait_for_timeout(2000)
 
         # If we are not redirected to /login, the session is active!
         if "/login" not in page.url:
-            print(f"  \033[32m✓ Session restored successfully! Skipping login.\033[0m")
+            print("  \033[32m✓ Session restored successfully! Skipping login.\033[0m")
             return True
         print("  \033[33m⚡ Session expired or redirected to login. Re-authenticating...\033[0m")
 
@@ -62,6 +65,7 @@ def _ensure_authenticated(page: Page, context) -> bool:
         page.goto(community_url, wait_until="networkidle")
     return True
 
+
 def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
     """
     Selects at least `min_tags` from the platform's combobox listbox.
@@ -72,12 +76,19 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
     tag_combobox.click()
     page.wait_for_timeout(300)
 
-    candidates = list(target_tags) + ["Law", "Legal", "Justice", "RuleOfLaw", "LegalAwareness", "Constitution"]
+    candidates = list(target_tags) + [
+        "Law",
+        "Legal",
+        "Justice",
+        "RuleOfLaw",
+        "LegalAwareness",
+        "Constitution",
+    ]
     selected_count = 0
     tried = set()
 
     for candidate in candidates:
-        clean_cand = candidate.strip().lstrip('#')
+        clean_cand = candidate.strip().lstrip("#")
         if not clean_cand or clean_cand.lower() in tried:
             continue
         tried.add(clean_cand.lower())
@@ -98,7 +109,9 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
                     break
             selected_opt = matching_opt if matching_opt else options[0]
             opt_text = selected_opt.inner_text().strip()
-            print(f"    \033[35m🏷 Selected tag ({selected_count + 1}/{min_tags}):\033[0m \033[1m'{opt_text}'\033[0m")
+            print(
+                f"    \033[35m🏷 Selected tag ({selected_count + 1}/{min_tags}):\033[0m \033[1m'{opt_text}'\033[0m"
+            )
             selected_opt.click()
             page.wait_for_timeout(600)
             selected_count += 1
@@ -112,7 +125,10 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
     page.wait_for_timeout(500)
     return selected_count
 
-def login_and_post(post_content: str, tags: list[str] = None, headless: bool | None = None) -> bool:
+
+def login_and_post(
+    post_content: str, tags: list[str] | None = None, headless: bool | None = None
+) -> bool:
     """
     Automates publishing a rich legal post to the community feed.
     """
@@ -122,27 +138,26 @@ def login_and_post(post_content: str, tags: list[str] = None, headless: bool | N
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=is_headless)
-            
-            # Load stored session if available
-            context_kwargs = {}
-            if os.path.exists(SESSION_FILE):
-                context_kwargs["storage_state"] = SESSION_FILE
 
-            context = browser.new_context(**context_kwargs)
+            # Load stored session if available
+            storage_path = SESSION_FILE if os.path.exists(SESSION_FILE) else None
+            context = browser.new_context(storage_state=storage_path)
             page = context.new_page()
 
             # 1. Authenticate and go to community
             _ensure_authenticated(page, context)
 
             # 2. Open the "Create Post" modal
-            trigger = page.get_by_role("button", name="Share your legal insights with the community.")
+            trigger = page.get_by_role(
+                "button", name="Share your legal insights with the community."
+            )
             if trigger.count() > 0:
                 trigger.first.click()
             else:
-                try:
-                    page.locator("button:has-text('Share your legal insights'), div:has-text('Share your legal insights')").first.click(timeout=8000)
-                except TimeoutError:
-                    pass
+                with contextlib.suppress(TimeoutError):
+                    page.locator(
+                        "button:has-text('Share your legal insights'), div:has-text('Share your legal insights')"
+                    ).first.click(timeout=8000)
 
             page.wait_for_timeout(1000)
 
@@ -152,13 +167,16 @@ def login_and_post(post_content: str, tags: list[str] = None, headless: bool | N
             editor.click()
             page.wait_for_timeout(300)
 
-            page.evaluate("""(html) => {
+            page.evaluate(
+                """(html) => {
                 const ed = document.querySelector('div.jodit-wysiwyg') || document.querySelector("div[contenteditable='true']");
                 if (ed) {
                     ed.focus();
                     document.execCommand('insertHTML', false, html);
                 }
-            }""", post_content)
+            }""",
+                post_content,
+            )
 
             page.wait_for_timeout(1000)
 
@@ -186,10 +204,8 @@ def login_and_post(post_content: str, tags: list[str] = None, headless: bool | N
                 page.locator("text='Create Post'").wait_for(state="hidden", timeout=15000)
                 print("  \033[32m✓ Create Post modal confirmed! Post is now live.\033[0m")
                 # Save fresh session state after successful post
-                try:
+                with contextlib.suppress(Exception):
                     context.storage_state(path=SESSION_FILE)
-                except Exception:
-                    pass
                 page.wait_for_timeout(3000)
                 browser.close()
                 return True

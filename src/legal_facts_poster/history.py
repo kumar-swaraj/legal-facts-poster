@@ -1,13 +1,15 @@
 import os
 import time
+
 from .config import HISTORY_FILE
+
 
 def get_history() -> list[str]:
     """Retrieves list of previously posted topics from history file."""
     if not os.path.exists(HISTORY_FILE):
         return []
     topics = []
-    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+    with open(HISTORY_FILE, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -20,6 +22,7 @@ def get_history() -> list[str]:
             else:
                 topics.append(line)
     return topics
+
 
 def save_to_history(topic: str) -> None:
     """Appends a newly published topic with a timestamp to the history file."""

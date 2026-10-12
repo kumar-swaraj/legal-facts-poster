@@ -1,15 +1,18 @@
 import json
+
 from openai import OpenAI
 from pydantic import BaseModel
+
+from .categories import get_next_category
 from .config import (
-    AI_PROVIDER,
     AI_API_KEY,
-    AI_MODEL,
     AI_BASE_URL,
+    AI_MODEL,
+    AI_PROVIDER,
     PROVIDER_DEFAULTS,
 )
 from .history import get_history
-from .categories import get_next_category
+
 
 class LegalFact(BaseModel):
     topic: str
@@ -18,12 +21,13 @@ class LegalFact(BaseModel):
     takeaway: str
     tags: list[str]
 
+
 def _format_fact(fact: LegalFact) -> tuple[str, str, list[str]]:
     clean_bullets = []
     for b in fact.bullet_points:
-        b_clean = b.strip().lstrip('•').strip()
-        if not b_clean.startswith('<strong>') and not b_clean.startswith('<b>') and ':' in b_clean:
-            prefix, rest = b_clean.split(':', 1)
+        b_clean = b.strip().lstrip("•").strip()
+        if not b_clean.startswith("<strong>") and not b_clean.startswith("<b>") and ":" in b_clean:
+            prefix, rest = b_clean.split(":", 1)
             b_clean = f"<strong>{prefix.strip()}:</strong> {rest.strip()}"
         clean_bullets.append(b_clean)
 
@@ -35,12 +39,14 @@ def _format_fact(fact: LegalFact) -> tuple[str, str, list[str]]:
         f"<p><br></p>"
         f"<p><em>{fact.takeaway}</em></p>"
     )
-    
-    clean_tags = [t.lstrip('#').strip().replace(' ', '') for t in fact.tags if t.strip()]
+
+    clean_tags = [t.lstrip("#").strip().replace(" ", "") for t in fact.tags if t.strip()]
     return fact.topic, post_html, clean_tags
+
 
 def _generate_via_anthropic(api_key: str, model_name: str, prompt: str) -> LegalFact:
     import urllib.request
+
     schema_prompt = prompt + (
         "\n\nReturn strict JSON format with exactly these keys:\n"
         "{\n"
@@ -53,12 +59,14 @@ def _generate_via_anthropic(api_key: str, model_name: str, prompt: str) -> Legal
     )
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
-        data=json.dumps({
-            "model": model_name,
-            "max_tokens": 1024,
-            "system": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return strict JSON only.",
-            "messages": [{"role": "user", "content": schema_prompt}],
-        }).encode("utf-8"),
+        data=json.dumps(
+            {
+                "model": model_name,
+                "max_tokens": 1024,
+                "system": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return strict JSON only.",
+                "messages": [{"role": "user", "content": schema_prompt}],
+            }
+        ).encode("utf-8"),
         headers={
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
@@ -74,6 +82,7 @@ def _generate_via_anthropic(api_key: str, model_name: str, prompt: str) -> Legal
                 raw_text = raw_text.rsplit("```", 1)[0]
         fact_dict = json.loads(raw_text.strip())
         return LegalFact(**fact_dict)
+
 
 def generate_new_fact() -> tuple[str, str, list[str]]:
     """
@@ -101,8 +110,8 @@ def generate_new_fact() -> tuple[str, str, list[str]]:
 Your content must strictly focus on Indian law, Indian courts (like the Supreme Court of India or High Courts), the Indian justice system, the Indian Constitution, or landmark Indian legal cases.
 
 TODAY'S CHOSEN FOCUS DOMAIN:
-Category: {category['name']}
-Key Aspects: {category['focus']}
+Category: {category["name"]}
+Key Aspects: {category["focus"]}
 
 STRUCTURE & FORMAT RULES:
 1. 'headline': 1 punchy opening headline or question (e.g., "Did you know that an Indian police station cannot turn you away under a Zero FIR?")
@@ -120,9 +129,11 @@ PREVIOUSLY COVERED TOPICS (DO NOT DUPLICATE ANY OF THESE):
         last_error = None
         for model_name in models_to_try:
             try:
-                print(f"  \033[36m⚡ Generating fact via \033[1m{provider_info['name']}\033[0m \033[36m({model_name})...\033[0m")
-                fact = _generate_via_anthropic(AI_API_KEY, model_name, prompt)
-                return _format_fact(fact)
+                print(
+                    f"  \033[36m⚡ Generating fact via \033[1m{provider_info['name']}\033[0m \033[36m({model_name})...\033[0m"
+                )
+                anthropic_fact = _generate_via_anthropic(AI_API_KEY, model_name, prompt)
+                return _format_fact(anthropic_fact)
             except Exception as e:
                 last_error = e
                 print(f"  \033[33mError with {model_name}: {e}. Trying fallback...\033[0m")
@@ -141,18 +152,24 @@ PREVIOUSLY COVERED TOPICS (DO NOT DUPLICATE ANY OF THESE):
     client = OpenAI(**client_kwargs)
 
     last_error = None
+    fact: LegalFact | None = None
     for model_name in models_to_try:
         try:
-            print(f"  \033[36m⚡ Generating fact via \033[1m{provider_info['name']}\033[0m \033[36m({model_name})...\033[0m")
-            
+            print(
+                f"  \033[36m⚡ Generating fact via \033[1m{provider_info['name']}\033[0m \033[36m({model_name})...\033[0m"
+            )
+
             fact = None
             # Attempt 1: Native Pydantic parse
             try:
                 response = client.beta.chat.completions.parse(
                     model=model_name,
                     messages=[
-                        {"role": "system", "content": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return valid JSON matching the schema."},
-                        {"role": "user", "content": prompt}
+                        {
+                            "role": "system",
+                            "content": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return valid JSON matching the schema.",
+                        },
+                        {"role": "user", "content": prompt},
                     ],
                     response_format=LegalFact,
                 )
@@ -172,12 +189,15 @@ PREVIOUSLY COVERED TOPICS (DO NOT DUPLICATE ANY OF THESE):
                 fallback_resp = client.chat.completions.create(
                     model=model_name,
                     messages=[
-                        {"role": "system", "content": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return pure JSON only."},
-                        {"role": "user", "content": schema_instructions}
+                        {
+                            "role": "system",
+                            "content": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return pure JSON only.",
+                        },
+                        {"role": "user", "content": schema_instructions},
                     ],
                     response_format={"type": "json_object"},
                 )
-                raw_json = fallback_resp.choices[0].message.content.strip()
+                raw_json = (fallback_resp.choices[0].message.content or "").strip()
                 if raw_json.startswith("```"):
                     raw_json = raw_json.split("\n", 1)[1]
                     if raw_json.endswith("```"):
@@ -194,10 +214,12 @@ PREVIOUSLY COVERED TOPICS (DO NOT DUPLICATE ANY OF THESE):
             last_error = e
             err_str = str(e)
             if any(code in err_str for code in ["503", "404", "429", "rate_limit"]):
-                print(f"  \033[33mModel {model_name} unavailable or rate-limited. Trying fallback...\033[0m")
+                print(
+                    f"  \033[33mModel {model_name} unavailable or rate-limited. Trying fallback...\033[0m"
+                )
                 continue
             else:
                 print(f"  \033[33mError with {model_name}: {e}. Trying fallback...\033[0m")
                 continue
-                
+
     raise RuntimeError(f"All models for provider '{AI_PROVIDER}' failed. Last error: {last_error}")

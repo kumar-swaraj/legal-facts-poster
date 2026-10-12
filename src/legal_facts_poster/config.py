@@ -1,5 +1,6 @@
 import os
-from dotenv import load_dotenv, find_dotenv
+
+from dotenv import find_dotenv, load_dotenv
 
 # Search locations: 1. Current directory / parents, 2. User home directory
 load_dotenv(find_dotenv(usecwd=True))
@@ -10,10 +11,12 @@ _home_env = os.path.expanduser("~/.legal-facts-poster.env")
 if os.path.exists(_home_env):
     load_dotenv(_home_env)
 
+
 def _to_bool(val: str | None, default: bool = False) -> bool:
     if val is None:
         return default
     return val.strip().lower() in ("true", "1", "yes", "t", "y")
+
 
 def _to_float(val: str | None, default: float) -> float:
     try:
@@ -21,11 +24,13 @@ def _to_float(val: str | None, default: float) -> float:
     except ValueError:
         return default
 
+
 def _to_int(val: str | None, default: int) -> int:
     try:
         return int(val) if val is not None else default
     except ValueError:
         return default
+
 
 PROVIDER_DEFAULTS = {
     "gemini": {
@@ -84,6 +89,7 @@ PROVIDER_DEFAULTS = {
     },
 }
 
+
 def _resolve_ai_config():
     provider = os.getenv("AI_PROVIDER", "").lower()
     if not provider:
@@ -129,6 +135,7 @@ def _resolve_ai_config():
 
     return provider, key, os.getenv("AI_MODEL", ""), os.getenv("AI_BASE_URL", "")
 
+
 # AI Provider Configuration
 AI_PROVIDER, AI_API_KEY, AI_MODEL, AI_BASE_URL = _resolve_ai_config()
 GEMINI_API_KEY: str = AI_API_KEY  # Backwards compatibility
@@ -147,6 +154,7 @@ JITTER_MAX_MINUTES: int = _to_int(os.getenv("JITTER_MAX_MINUTES"), default=10)
 
 MAX_RETRIES: int = _to_int(os.getenv("MAX_RETRIES"), default=2)
 RETRY_DELAY_SECONDS: int = _to_int(os.getenv("RETRY_DELAY_SECONDS"), default=60)
+
 
 def reload_config(custom_env_path: str | None = None) -> None:
     """Reloads environment variables, optionally from a custom .env file."""
@@ -172,9 +180,11 @@ def reload_config(custom_env_path: str | None = None) -> None:
     MAX_RETRIES = _to_int(os.getenv("MAX_RETRIES"), default=2)
     RETRY_DELAY_SECONDS = _to_int(os.getenv("RETRY_DELAY_SECONDS"), default=60)
 
+
 def validate_config() -> None:
     """Validates that necessary configuration is present."""
     import sys
+
     missing = []
     if not USERNAME:
         missing.append("MY_SITE_USERNAME")
@@ -184,14 +194,21 @@ def validate_config() -> None:
         missing.append(f"AI API Key (AI_API_KEY or {AI_PROVIDER.upper()}_API_KEY)")
     if not BASE_URL:
         missing.append("BASE_URL")
-    
+
     if missing:
         if sys.stdin.isatty():
             print(f"\n\033[33mNotice: Missing required settings: {', '.join(missing)}\033[0m")
             try:
-                resp = input("\033[1mWould you like to run the interactive setup wizard now? [Y/n]: \033[0m").strip().lower()
+                resp = (
+                    input(
+                        "\033[1mWould you like to run the interactive setup wizard now? [Y/n]: \033[0m"
+                    )
+                    .strip()
+                    .lower()
+                )
                 if resp in ("", "y", "yes"):
                     from .wizard import run_wizard
+
                     run_wizard()
                     return
             except (KeyboardInterrupt, EOFError):
@@ -206,6 +223,7 @@ def validate_config() -> None:
             "  3. Global config at '~/.config/legal-facts-poster/.env'\n"
             "  4. Standard shell environment variables (export KEY=value)"
         )
+
 
 ENV_TEMPLATE = """# ==========================================
 # Legal Facts Poster Configuration
@@ -241,6 +259,7 @@ JITTER_MAX_MINUTES=10
 MAX_RETRIES=2
 RETRY_DELAY_SECONDS=60
 """
+
 
 def init_env_template(target_path: str = ".env") -> str:
     """Creates a sample .env file if one does not already exist."""
