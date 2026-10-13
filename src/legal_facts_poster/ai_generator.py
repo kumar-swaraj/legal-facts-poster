@@ -52,9 +52,7 @@ class GeneratedFact:
         return f"GeneratedFact(topic={self.topic!r}, headline={self.headline!r}, category={self.category!r})"
 
 
-def _format_fact(
-    fact: LegalFact, category: str = "", model_name: str = ""
-) -> GeneratedFact:
+def _format_fact(fact: LegalFact, category: str = "", model_name: str = "") -> GeneratedFact:
     clean_bullets = []
     for b in fact.bullet_points:
         b_clean = b.strip().lstrip("•").strip()
@@ -134,7 +132,7 @@ def _attempt_provider_models(
 ) -> GeneratedFact | None:
     """Attempts generating a fact across all candidate models for a given AI provider."""
     provider_info = PROVIDER_DEFAULTS.get(provider, PROVIDER_DEFAULTS["custom"])
-    base_url = base_url_override or provider_info.get("base_url", "")
+    base_url = base_url_override or str(provider_info.get("base_url") or "")
 
     models_to_try = []
     if model_override:
@@ -164,15 +162,10 @@ def _attempt_provider_models(
         return None
 
     # For OpenAI-compatible providers (Gemini, OpenAI, Groq, DeepSeek, Grok, etc.)
-    client_kwargs = {
-        "api_key": api_key,
-        "timeout": 25.0,
-        "max_retries": 1,
-    }
     if base_url:
-        client_kwargs["base_url"] = base_url
-
-    client = OpenAI(**client_kwargs)
+        client = OpenAI(api_key=api_key, base_url=base_url, timeout=25.0, max_retries=1)
+    else:
+        client = OpenAI(api_key=api_key, timeout=25.0, max_retries=1)
 
     for model_name in models_to_try:
         try:
@@ -288,15 +281,18 @@ PREVIOUSLY COVERED TOPICS (DO NOT DUPLICATE ANY OF THESE):
     for alt_prov, alt_info in PROVIDER_DEFAULTS.items():
         if alt_prov == AI_PROVIDER or alt_prov == "custom":
             continue
-        key_env = alt_info.get("key_env", "")
+        key_env = str(alt_info.get("key_env") or "")
+        if not key_env:
+            continue
         alt_key = os.getenv(key_env, "")
         if not alt_key:
             continue
+        alt_base_url = str(alt_info.get("base_url") or "")
         print(
             f"  \033[36m🔄 Failing over to secondary provider: \033[1m{alt_info['name']}\033[0m\033[36m...\033[0m"
         )
         alt_result = _attempt_provider_models(
-            alt_prov, alt_key, "", alt_info.get("base_url", ""), prompt, category["name"]
+            alt_prov, alt_key, "", alt_base_url, prompt, category["name"]
         )
         if alt_result:
             return alt_result

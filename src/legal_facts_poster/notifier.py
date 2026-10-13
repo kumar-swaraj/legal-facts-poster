@@ -120,7 +120,11 @@ def _send_discord(
         ]
         if attempt is not None:
             fields.append(
-                {"name": "Attempts Exhausted", "value": f"{attempt} of {MAX_RETRIES + 1}", "inline": True}
+                {
+                    "name": "Attempts Exhausted",
+                    "value": f"{attempt} of {MAX_RETRIES + 1}",
+                    "inline": True,
+                }
             )
         embed = {
             "title": "🚨 Post Publication Failed",

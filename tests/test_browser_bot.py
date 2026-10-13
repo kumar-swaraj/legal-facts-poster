@@ -58,6 +58,7 @@ def test_ensure_authenticated_fails_when_stuck_on_login(monkeypatch):
 
     # If wait_for_url times out on login
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
     mock_page.wait_for_url.side_effect = PlaywrightTimeoutError("Timed out waiting for login")
     mock_page.locator.return_value.all_inner_texts.return_value = ["Invalid credentials"]
 
