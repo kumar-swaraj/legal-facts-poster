@@ -1,5 +1,7 @@
 import contextlib
+import json
 import os
+import time
 
 from playwright.sync_api import (
     Browser,
@@ -13,6 +15,32 @@ from playwright.sync_api import (
 )
 
 from .config import BASE_URL, HEADLESS, PASSWORD, SESSION_FILE, USERNAME
+
+
+def _validate_and_get_session(path: str) -> str | None:
+    """
+    Verifies that the session file exists, is non-empty, and contains valid JSON.
+    If corrupted or invalid, automatically quarantines it to avoid crashing Playwright.
+    """
+    if not os.path.exists(path):
+        return None
+    try:
+        if os.path.getsize(path) == 0:
+            raise ValueError("Session file is empty (0 bytes)")
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("Session JSON root is not an object")
+        return path
+    except Exception as exc:
+        print(
+            f"  \033[33m⚡ Corrupted session detected in '{path}': {exc}. Quarantining and resetting...\033[0m"
+        )
+        with contextlib.suppress(OSError):
+            backup = f"{path}.corrupted.{int(time.time())}"
+            os.rename(path, backup)
+            print(f"  \033[33mQuarantined corrupted session to '{backup}'.\033[0m")
+        return None
 
 
 def _save_session_state(context, path: str) -> None:
@@ -29,12 +57,14 @@ def _save_session_state(context, path: str) -> None:
 def _ensure_authenticated(page: Page, context) -> bool:
     """
     Checks if session is authenticated. If not, performs login and saves storage state.
+    Returns False if login fails or credentials could not be authenticated.
     """
     community_url = f"{BASE_URL}/community"
     login_url = f"{BASE_URL}/login"
 
     # Check if existing session is already active
-    if os.path.exists(SESSION_FILE):
+    valid_session = _validate_and_get_session(SESSION_FILE)
+    if valid_session:
         print("Existing session found. Checking authentication status...")
         try:
             page.goto(community_url, wait_until="networkidle", timeout=20000)
@@ -63,22 +93,35 @@ def _ensure_authenticated(page: Page, context) -> bool:
         page.fill("input#password, input[name='password']", PASSWORD)
         page.click("button[type='submit']:has-text('Log In')", timeout=5000)
     except TimeoutError:
-        print("Could not autofill login. Waiting for manual login...")
+        print("Could not autofill login. Checking for login form...")
 
     print("Waiting for login to complete...")
     try:
-        page.wait_for_url(lambda u: "/login" not in u, timeout=60000)
+        page.wait_for_url(lambda u: "/login" not in u, timeout=45000)
         page.wait_for_timeout(2000)
     except TimeoutError:
-        print("Notice: URL wait timed out, continuing...")
+        print("  \033[31m[Error] Login verification timed out. Still on login endpoint.\033[0m")
+        err_messages = page.locator(
+            "[role='alert'], div[class*='error'], p[class*='error']"
+        ).all_inner_texts()
+        if err_messages:
+            print(f"  \033[31mLogin errors on page: {err_messages}\033[0m")
+        return False
 
-    # Save session storage state for subsequent runs
+    if "/login" in page.url:
+        print("  \033[31m[Error] Authentication incomplete: page remains on login endpoint.\033[0m")
+        return False
+
+    # Save session storage state only upon confirmed authentication
     _save_session_state(context, SESSION_FILE)
 
     # Navigate to community if not already there
     if "/community" not in page.url:
         print(f"Navigating to {community_url}...")
-        page.goto(community_url, wait_until="networkidle")
+        try:
+            page.goto(community_url, wait_until="networkidle", timeout=15000)
+        except TimeoutError:
+            page.goto(community_url, wait_until="domcontentloaded")
     return True
 
 
@@ -243,25 +286,45 @@ def login_and_post(
             if browser is None:
                 return PostResult(False)
 
-            # Load stored session if available
-            storage_path = SESSION_FILE if os.path.exists(SESSION_FILE) else None
+            # Load stored session if valid
+            storage_path = _validate_and_get_session(SESSION_FILE)
             context = browser.new_context(storage_state=storage_path)
             page = context.new_page()
 
             # 1. Authenticate and go to community
-            _ensure_authenticated(page, context)
+            if not _ensure_authenticated(page, context):
+                print(
+                    "  \033[31m[Error] Authentication failed or credentials rejected. Aborting post attempt.\033[0m"
+                )
+                browser.close()
+                return PostResult(False)
 
-            # 2. Open the "Create Post" modal
+            # 2. Open the "Create Post" modal with fallback locators
             trigger = page.get_by_role(
                 "button", name="Share your legal insights with the community."
             )
-            if trigger.count() > 0:
+            if trigger.count() > 0 and trigger.first.is_visible():
                 trigger.first.click()
             else:
-                with contextlib.suppress(TimeoutError):
-                    page.locator(
-                        "button:has-text('Share your legal insights'), div:has-text('Share your legal insights')"
-                    ).first.click(timeout=8000)
+                modal_selectors = [
+                    "button:has-text('Share your legal insights')",
+                    "div:has-text('Share your legal insights')",
+                    "button:has-text('Create Post')",
+                    "button:has-text('New Post')",
+                    "button:has-text('Share insight')",
+                ]
+                clicked = False
+                for sel in modal_selectors:
+                    loc = page.locator(sel).first
+                    if loc.count() > 0 and loc.is_visible():
+                        loc.click()
+                        clicked = True
+                        break
+                if not clicked:
+                    with contextlib.suppress(TimeoutError):
+                        page.locator(
+                            "button:has-text('Share your legal insights'), button:has-text('Create Post')"
+                        ).first.click(timeout=8000)
 
             page.wait_for_timeout(1000)
 

@@ -152,3 +152,15 @@ def test_send_discord_rich_metadata(monkeypatch):
         assert "`#Law`" in tag_field["value"]
         assert "`#LegalAwareness`" in tag_field["value"]
         assert "SupremeCourt" not in tag_field["value"]
+
+
+def test_mask_url_sanitizes_tokens():
+    discord = "https://discord.com/api/webhooks/123456789/SuperSecretTokenHere"
+    masked_discord = notifier._mask_url(discord)
+    assert "SuperSecretTokenHere" not in masked_discord
+    assert "123456789/********" in masked_discord
+
+    telegram = "https://api.telegram.org/bot987654:SecretBotToken/sendMessage"
+    masked_telegram = notifier._mask_url(telegram)
+    assert "SecretBotToken" not in masked_telegram
+    assert "bot********/sendMessage" in masked_telegram

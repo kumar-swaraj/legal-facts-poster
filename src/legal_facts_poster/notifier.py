@@ -15,6 +15,28 @@ from .config import (
 )
 
 
+def _mask_url(url: str) -> str:
+    """Masks secret tokens from webhook and bot URLs to prevent credential leakage in logs."""
+    import re
+
+    # Discord: https://discord.com/api/webhooks/<id>/<token>
+    if "discord.com/api/webhooks" in url:
+        return re.sub(r"(webhooks/\d+/)[^/?#]+", r"\1********", url)
+    # Telegram: https://api.telegram.org/bot<token>/<method>
+    if "api.telegram.org/bot" in url:
+        return re.sub(r"(bot)[^/]+(/)", r"\1********\2", url)
+    # Slack / generic long secret path
+    parts = url.split("://", 1)
+    if len(parts) == 2:
+        scheme, rest = parts
+        domain_and_path = rest.split("/", 1)
+        if len(domain_and_path) == 2:
+            domain, path = domain_and_path
+            if len(path) > 16:
+                return f"{scheme}://{domain}/{path[:6]}...********"
+    return url
+
+
 def _send_http_post(url: str, payload: dict) -> bool:
     """Dispatches a JSON POST request with a safe timeout bound."""
     if not (url.startswith("http://") or url.startswith("https://")):
@@ -33,7 +55,8 @@ def _send_http_post(url: str, payload: dict) -> bool:
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
             return bool(resp.status in (200, 204))
     except Exception as exc:
-        print(f"  \033[33mNotice: Could not dispatch webhook to {url}: {exc}\033[0m")
+        safe_url = _mask_url(url)
+        print(f"  \033[33mNotice: Could not dispatch webhook to {safe_url}: {exc}\033[0m")
         return False
 
 
