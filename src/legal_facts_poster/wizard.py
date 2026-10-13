@@ -141,10 +141,11 @@ def run_wizard() -> None:
     headless_resp = input(h_prompt).strip().lower()
     headless_val = "true" if headless_resp in ("y", "yes") else "false"
 
-    # 7. Optional Alerting Webhook URL (Discord / Slack / Generic)
-    existing_webhook = os.getenv("WEBHOOK_URL", "")
+    # 7. Optional Alerting Webhook URL (Discord / MS Teams / Slack / Generic)
+    existing_webhook = os.getenv("TEAMS_WEBHOOK_URL", "") or os.getenv("WEBHOOK_URL", "")
     w_prompt = (
-        f"{BOLD}6. Discord / Webhook Alert URL{RESET} {DIM}(optional, press Enter to skip){RESET}: "
+        f"{BOLD}6. Alert Webhook URL (Discord / MS Teams / Slack){RESET} "
+        f"{DIM}(optional, press Enter to skip){RESET}: "
     )
     webhook_val = input(w_prompt).strip() or existing_webhook
 
@@ -168,7 +169,13 @@ def run_wizard() -> None:
         f.write("MAX_RETRIES=2\n")
         f.write("RETRY_DELAY_SECONDS=60\n")
         if webhook_val:
-            f.write(f'WEBHOOK_URL="{webhook_val}"\n')
+            if any(
+                h in webhook_val
+                for h in ("logic.azure.com", "webhook.office.com", "office.com/webhook")
+            ):
+                f.write(f'TEAMS_WEBHOOK_URL="{webhook_val}"\n')
+            else:
+                f.write(f'WEBHOOK_URL="{webhook_val}"\n')
             f.write('NOTIFY_ON="all"\n')
 
     # Set secure permissions (read/write only by owner)

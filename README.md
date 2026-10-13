@@ -120,7 +120,8 @@ legal-post --env-file /path/to/my-secrets.env
 | `HISTORY_FILE` | File to track posted topics to prevent duplicates | `posted_history.txt` |
 | `MAX_RETRIES` | Retry attempts on network/browser failures | `2` |
 | `RETRY_DELAY_SECONDS`| Delay in seconds between retries | `60` |
-| `WEBHOOK_URL` | Discord, Slack, or generic webhook URL for alerts | `""` (Disabled) |
+| `WEBHOOK_URL` | Discord, MS Teams, Slack, or generic webhook URL for alerts | `""` (Disabled) |
+| `TEAMS_WEBHOOK_URL` | Dedicated Microsoft Teams webhook URL (Adaptive Cards v1.4) | `""` (Disabled) |
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot token for direct alert messages | `""` (Disabled) |
 | `TELEGRAM_CHAT_ID` | Telegram chat ID to receive alert messages | `""` (Disabled) |
 | `NOTIFY_ON` | Alert level: `all` (posts + errors) or `failures_only` | `all` |
@@ -265,7 +266,7 @@ legal-facts-poster/
         ├── history.py        # History persistence manager
         ├── ai_generator.py   # Multi-model structured fact generation & HTML formatting
         ├── browser_bot.py    # Playwright browser automation & session persistence (0600)
-        ├── notifier.py       # Observability & alerts (Discord embeds, Telegram, webhooks)
+        ├── notifier.py       # Observability & alerts (Discord embeds, Teams Adaptive Cards, Telegram, webhooks)
         ├── runner.py         # Task orchestration, SIGTERM handling & schedule loop
         ├── wizard.py         # Interactive terminal setup wizard
         └── cli.py            # CLI argument parsing (argparse) & command dispatcher
