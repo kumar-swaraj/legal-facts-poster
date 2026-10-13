@@ -11,7 +11,9 @@ wheels/
 
 # Environment credentials & session tokens
 .env
-session.json
+.env.*
+session.json*
+*.corrupted.*
 
 # Local history & scratch
 posted_history.txt
