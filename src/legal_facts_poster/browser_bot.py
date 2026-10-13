@@ -82,10 +82,11 @@ def _ensure_authenticated(page: Page, context) -> bool:
     return True
 
 
-def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
+def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> tuple[int, list[str]]:
     """
     Selects at least `min_tags` from the platform's combobox listbox.
     Consecutively appends comma-separated tags without clearing earlier ones.
+    Returns a tuple of (selected_count, applied_tags_list).
     """
     tag_combobox = page.locator("input[role='combobox']").first
     tag_combobox.scroll_into_view_if_needed()
@@ -101,6 +102,7 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
         "Constitution",
     ]
     selected_count = 0
+    selected_tags: list[str] = []
     tried = set()
 
     for candidate in candidates:
@@ -131,6 +133,8 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
             selected_opt.click()
             page.wait_for_timeout(600)
             selected_count += 1
+            if opt_text not in selected_tags:
+                selected_tags.append(opt_text)
         else:
             # Revert typed characters if no tag matched
             tag_combobox.fill(val_before)
@@ -139,7 +143,7 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> int:
     # Blur tag combobox by clicking the editor
     page.locator("div.jodit-wysiwyg, div[contenteditable='true']").first.click()
     page.wait_for_timeout(500)
-    return selected_count
+    return selected_count, selected_tags
 
 
 def _launch_browser(p: Playwright, is_headless: bool) -> Browser | None:
@@ -206,11 +210,29 @@ def _launch_browser(p: Playwright, is_headless: bool) -> Browser | None:
         raise
 
 
+class PostResult:
+    """Result object supporting boolean checks, tuple unpacking, and attribute access."""
+
+    def __init__(self, success: bool, applied_tags: list[str] | None = None) -> None:
+        self.success = success
+        self.applied_tags = applied_tags or []
+
+    def __bool__(self) -> bool:
+        return self.success
+
+    def __iter__(self):
+        return iter((self.success, self.applied_tags))
+
+    def __repr__(self) -> str:
+        return f"PostResult(success={self.success}, applied_tags={self.applied_tags})"
+
+
 def login_and_post(
     post_content: str, tags: list[str] | None = None, headless: bool | None = None
-) -> bool:
+) -> PostResult:
     """
     Automates publishing a rich legal post to the community feed.
+    Returns a PostResult containing success status and actually applied tags.
     """
     is_headless = HEADLESS if headless is None else headless
     print(f"  \033[34m🌐 Launching browser agent (headless={is_headless})...\033[0m")
@@ -219,7 +241,7 @@ def login_and_post(
         with sync_playwright() as p:
             browser = _launch_browser(p, is_headless)
             if browser is None:
-                return False
+                return PostResult(False)
 
             # Load stored session if available
             storage_path = SESSION_FILE if os.path.exists(SESSION_FILE) else None
@@ -263,9 +285,10 @@ def login_and_post(
             page.wait_for_timeout(1000)
 
             # 4. Add at least two valid tags
+            applied_tags: list[str] = []
             if tags:
                 print(f"  \033[36m🏷 Selecting tags from combobox (target: {tags})...\033[0m")
-                count = _select_tags(page, tags, min_tags=2)
+                count, applied_tags = _select_tags(page, tags, min_tags=2)
                 print(f"  \033[32m✓ Tag selection complete ({count} tags active).\033[0m")
 
             page.wait_for_timeout(1000)
@@ -289,15 +312,15 @@ def login_and_post(
                 _save_session_state(context, SESSION_FILE)
                 page.wait_for_timeout(3000)
                 browser.close()
-                return True
+                return PostResult(True, applied_tags)
             except TimeoutError:
                 print("Modal did not close after clicking Publish! Checking for error...")
                 errors = page.locator("[role='alert'], div[class*='error']").all_inner_texts()
                 if errors:
                     print(f"Errors on page: {errors}")
                 browser.close()
-                return False
+                return PostResult(False, applied_tags)
 
     except Exception as e:
         print(f"Browser automation error: {e}")
-        return False
+        return PostResult(False)

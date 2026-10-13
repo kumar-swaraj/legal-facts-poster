@@ -22,7 +22,38 @@ class LegalFact(BaseModel):
     tags: list[str]
 
 
-def _format_fact(fact: LegalFact) -> tuple[str, str, list[str]]:
+class GeneratedFact:
+    """Encapsulates the generated legal fact along with prompt metadata and backward compatibility."""
+
+    def __init__(
+        self,
+        topic: str,
+        post_html: str,
+        tags: list[str],
+        headline: str = "",
+        takeaway: str = "",
+        category: str = "",
+        model_name: str = "",
+    ) -> None:
+        self.topic = topic
+        self.post_html = post_html
+        self.tags = tags
+        self.headline = headline
+        self.takeaway = takeaway
+        self.category = category
+        self.model_name = model_name
+
+    def __iter__(self):
+        """Allows unpacking as (topic, post_html, tags) for backward compatibility."""
+        return iter((self.topic, self.post_html, self.tags))
+
+    def __repr__(self) -> str:
+        return f"GeneratedFact(topic={self.topic!r}, headline={self.headline!r}, category={self.category!r})"
+
+
+def _format_fact(
+    fact: LegalFact, category: str = "", model_name: str = ""
+) -> GeneratedFact:
     clean_bullets = []
     for b in fact.bullet_points:
         b_clean = b.strip().lstrip("•").strip()
@@ -41,7 +72,15 @@ def _format_fact(fact: LegalFact) -> tuple[str, str, list[str]]:
     )
 
     clean_tags = [t.lstrip("#").strip().replace(" ", "") for t in fact.tags if t.strip()]
-    return fact.topic, post_html, clean_tags
+    return GeneratedFact(
+        topic=fact.topic,
+        post_html=post_html,
+        tags=clean_tags,
+        headline=fact.headline,
+        takeaway=fact.takeaway,
+        category=category,
+        model_name=model_name,
+    )
 
 
 def _generate_via_anthropic(api_key: str, model_name: str, prompt: str) -> LegalFact:
@@ -133,7 +172,11 @@ PREVIOUSLY COVERED TOPICS (DO NOT DUPLICATE ANY OF THESE):
                     f"  \033[36m⚡ Generating fact via \033[1m{provider_info['name']}\033[0m \033[36m({model_name})...\033[0m"
                 )
                 anthropic_fact = _generate_via_anthropic(AI_API_KEY, model_name, prompt)
-                return _format_fact(anthropic_fact)
+                return _format_fact(
+                    anthropic_fact,
+                    category=category["name"],
+                    model_name=f"Anthropic Claude ({model_name})",
+                )
             except Exception as e:
                 last_error = e
                 print(f"  \033[33mError with {model_name}: {e}. Trying fallback...\033[0m")
@@ -209,7 +252,11 @@ PREVIOUSLY COVERED TOPICS (DO NOT DUPLICATE ANY OF THESE):
             if not fact:
                 continue
 
-            return _format_fact(fact)
+            return _format_fact(
+                fact,
+                category=category["name"],
+                model_name=f"{provider_info['name']} ({model_name})",
+            )
         except Exception as e:
             last_error = e
             err_str = str(e)

@@ -43,17 +43,26 @@ def run_single_post(fail_fast: bool = False, headless: bool | None = None) -> bo
             print(
                 f"\n{BOLD}[Attempt {attempt}/{MAX_RETRIES + 1}]{RESET} Generating AI legal fact..."
             )
-            topic, post_html, tags = generate_new_fact()
-            last_topic = topic
-            print(f"{BOLD}Topic:{RESET} '{topic}' | {BOLD}Tags:{RESET} {tags}")
+            fact = generate_new_fact()
+            last_topic = fact.topic
+            print(f"{BOLD}Topic:{RESET} '{fact.topic}' | {BOLD}Tags:{RESET} {fact.tags}")
 
-            success = login_and_post(post_html, tags, headless=headless)
-            if success:
-                save_to_history(topic)
-                notify_success(topic=topic, tags=tags)
+            post_res = login_and_post(fact.post_html, fact.tags, headless=headless)
+            if post_res:
+                applied_tags = post_res.applied_tags if post_res.applied_tags else fact.tags
+                save_to_history(fact.topic)
+                notify_success(
+                    topic=fact.topic,
+                    tags=applied_tags,
+                    headline=getattr(fact, "headline", ""),
+                    takeaway=getattr(fact, "takeaway", ""),
+                    category=getattr(fact, "category", ""),
+                    model_name=getattr(fact, "model_name", ""),
+                    attempt=attempt,
+                )
                 ping_healthcheck()
                 print(
-                    f"\n{BOLD}{GREEN}✓ Successfully posted and logged '{topic}' to history!{RESET}"
+                    f"\n{BOLD}{GREEN}✓ Successfully posted and logged '{fact.topic}' to history!{RESET}"
                 )
                 return True
             else:
@@ -66,7 +75,7 @@ def run_single_post(fail_fast: bool = False, headless: bool | None = None) -> bo
                 time.sleep(RETRY_DELAY_SECONDS)
             else:
                 print(f"{RED}All retry attempts exhausted for this cycle.{RESET}")
-                notify_failure(error=str(e), topic=last_topic)
+                notify_failure(error=str(e), topic=last_topic, attempt=attempt)
                 if fail_fast:
                     sys.exit(1)
                 return False
