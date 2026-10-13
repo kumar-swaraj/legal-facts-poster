@@ -157,6 +157,7 @@ RETRY_DELAY_SECONDS: int = _to_int(os.getenv("RETRY_DELAY_SECONDS"), default=60)
 
 # Observability & Alerting
 WEBHOOK_URL: str = os.getenv("WEBHOOK_URL", "")
+TEAMS_WEBHOOK_URL: str = os.getenv("TEAMS_WEBHOOK_URL", "")
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
 NOTIFY_ON: str = os.getenv("NOTIFY_ON", "all").lower()
@@ -168,7 +169,13 @@ def reload_config(custom_env_path: str | None = None) -> None:
     global USERNAME, PASSWORD, GEMINI_API_KEY, BASE_URL, HEADLESS, SESSION_FILE, HISTORY_FILE
     global POST_INTERVAL_HOURS, ENABLE_JITTER, JITTER_MAX_MINUTES, MAX_RETRIES, RETRY_DELAY_SECONDS
     global AI_PROVIDER, AI_API_KEY, AI_MODEL, AI_BASE_URL
-    global WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, NOTIFY_ON, HEALTHCHECK_URL
+    global \
+        WEBHOOK_URL, \
+        TEAMS_WEBHOOK_URL, \
+        TELEGRAM_BOT_TOKEN, \
+        TELEGRAM_CHAT_ID, \
+        NOTIFY_ON, \
+        HEALTHCHECK_URL
 
     if custom_env_path and os.path.exists(custom_env_path):
         load_dotenv(custom_env_path, override=True)
@@ -189,6 +196,7 @@ def reload_config(custom_env_path: str | None = None) -> None:
     RETRY_DELAY_SECONDS = _to_int(os.getenv("RETRY_DELAY_SECONDS"), default=60)
 
     WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+    TEAMS_WEBHOOK_URL = os.getenv("TEAMS_WEBHOOK_URL", "")
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
     NOTIFY_ON = os.getenv("NOTIFY_ON", "all").lower()
@@ -276,6 +284,8 @@ RETRY_DELAY_SECONDS=60
 # 7. Observability & Alerts (Optional)
 # Webhook URL for Discord, Slack, or generic POST
 # WEBHOOK_URL="https://discord.com/api/webhooks/..."
+# Dedicated Microsoft Teams webhook (Workflows or Office 365 Connector)
+# TEAMS_WEBHOOK_URL="https://prod-XX.logic.azure.com/workflows/..."
 # Or Telegram credentials:
 # TELEGRAM_BOT_TOKEN="123456789:ABCDEF..."
 # TELEGRAM_CHAT_ID="987654321"

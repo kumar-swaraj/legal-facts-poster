@@ -9,6 +9,7 @@ from .config import (
     MAX_RETRIES,
     NOTIFY_ON,
     POST_INTERVAL_HOURS,
+    TEAMS_WEBHOOK_URL,
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     WEBHOOK_URL,
@@ -25,6 +26,11 @@ def _mask_url(url: str) -> str:
     # Telegram: https://api.telegram.org/bot<token>/<method>
     if "api.telegram.org/bot" in url:
         return re.sub(r"(bot)[^/]+(/)", r"\1********\2", url)
+    # Microsoft Teams / Azure Logic Apps: sig query parameter or webhookb2 token
+    if any(host in url for host in ("logic.azure.com", "webhook.office.com", "office.com/webhook")):
+        url = re.sub(r"([?&]sig=)[^&]+", r"\1********", url)
+        url = re.sub(r"(IncomingWebhook/)[^/]+(/)", r"\1********\2", url)
+        return url
     # Slack / generic long secret path
     parts = url.split("://", 1)
     if len(parts) == 2:
@@ -53,7 +59,7 @@ def _send_http_post(url: str, payload: dict) -> bool:
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
-            return bool(resp.status in (200, 204))
+            return bool(resp.status in (200, 202, 204))
     except Exception as exc:
         safe_url = _mask_url(url)
         print(f"  \033[33mNotice: Could not dispatch webhook to {safe_url}: {exc}\033[0m")
@@ -212,6 +218,150 @@ def _send_generic_webhook(
     return _send_http_post(url, payload)
 
 
+def _is_teams_webhook(url: str) -> bool:
+    """Detects whether a URL points to a Microsoft Teams incoming webhook or Azure Logic Apps workflow."""
+    return any(
+        host in url for host in ("webhook.office.com", "logic.azure.com", "office.com/webhook")
+    )
+
+
+def _send_teams(
+    webhook_url: str,
+    event: str,
+    topic: str | None,
+    tags: list[str] | None,
+    error: str | None,
+    headline: str | None = None,
+    takeaway: str | None = None,
+    category: str | None = None,
+    model_name: str | None = None,
+    attempt: int | None = None,
+) -> bool:
+    """Builds and delivers a native Adaptive Card (v1.4) to Microsoft Teams."""
+    if event == "post_success":
+        clean_tags = "  ".join(f"#{t}" for t in (tags or [])) if tags else "None"
+        card_body: list[dict[str, object]] = [
+            {
+                "type": "TextBlock",
+                "size": "Medium",
+                "weight": "Bolder",
+                "color": "Good",
+                "text": "⚖️ Legal Fact Published Successfully",
+            }
+        ]
+
+        if headline:
+            card_body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"**{headline}**",
+                    "wrap": True,
+                    "weight": "Bolder",
+                }
+            )
+
+        if takeaway:
+            card_body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"_{takeaway}_",
+                    "wrap": True,
+                    "isSubtle": True,
+                }
+            )
+
+        facts: list[dict[str, str]] = [
+            {"title": "📌 Topic", "value": topic or "General Law"},
+        ]
+        if category:
+            facts.append({"title": "📂 Category", "value": category})
+        facts.append({"title": "🏷️ Tags", "value": clean_tags})
+        if model_name:
+            facts.append({"title": "🤖 AI Model", "value": model_name})
+        if attempt is not None:
+            facts.append({"title": "🎯 Attempt", "value": f"{attempt} of {MAX_RETRIES + 1}"})
+        facts.append({"title": "⏰ Next Post", "value": f"In ~{POST_INTERVAL_HOURS} hours"})
+
+        card_body.append({"type": "FactSet", "facts": facts})
+        card_body.append(
+            {
+                "type": "TextBlock",
+                "size": "Small",
+                "isSubtle": True,
+                "text": "Legal Facts Poster • Autonomous Agent",
+            }
+        )
+
+        actions: list[dict[str, str]] = []
+        if BASE_URL:
+            community_url = f"{BASE_URL.rstrip('/')}/community"
+            actions.append(
+                {
+                    "type": "Action.OpenUrl",
+                    "title": "🌐 View Community",
+                    "url": community_url,
+                }
+            )
+
+        adaptive_card: dict[str, object] = {
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": card_body,
+        }
+        if actions:
+            adaptive_card["actions"] = actions
+    else:
+        err_msg = error[:600] if error else "Unknown error encountered"
+        failure_facts = [
+            {"title": "⚠️ Error Details", "value": err_msg},
+        ]
+        if attempt is not None:
+            failure_facts.append(
+                {"title": "🎯 Attempts Exhausted", "value": f"{attempt} of {MAX_RETRIES + 1}"}
+            )
+
+        card_body = [
+            {
+                "type": "TextBlock",
+                "size": "Medium",
+                "weight": "Bolder",
+                "color": "Attention",
+                "text": "🚨 Post Publication Failed",
+            },
+            {
+                "type": "TextBlock",
+                "text": f"**Topic**: {topic or 'N/A'}\n\nAll automated retry attempts were exhausted.",
+                "wrap": True,
+            },
+            {"type": "FactSet", "facts": failure_facts},
+            {
+                "type": "TextBlock",
+                "size": "Small",
+                "isSubtle": True,
+                "text": "Legal Facts Poster • Error Alert",
+            },
+        ]
+        adaptive_card = {
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": card_body,
+        }
+
+    payload = {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "contentUrl": None,
+                "content": adaptive_card,
+            }
+        ],
+    }
+    return _send_http_post(webhook_url, payload)
+
+
 def send_notification(
     event: str,
     topic: str | None = None,
@@ -224,7 +374,7 @@ def send_notification(
     attempt: int | None = None,
 ) -> bool:
     """
-    Dispatches alerts to configured targets (Discord, Telegram, or generic webhooks).
+    Dispatches alerts to configured targets (Discord, Teams, Telegram, or generic webhooks).
     Suppresses success notifications if NOTIFY_ON is set to 'failures_only'.
     Never raises an uncaught exception.
     """
@@ -233,11 +383,45 @@ def send_notification(
 
     delivered = False
 
-    # 1. Deliver to Webhook URL (Discord or Generic)
-    if WEBHOOK_URL:
+    # 1. Deliver to TEAMS_WEBHOOK_URL if explicitly configured
+    if TEAMS_WEBHOOK_URL:
+        delivered = (
+            _send_teams(
+                TEAMS_WEBHOOK_URL,
+                event,
+                topic,
+                tags,
+                error,
+                headline=headline,
+                takeaway=takeaway,
+                category=category,
+                model_name=model_name,
+                attempt=attempt,
+            )
+            or delivered
+        )
+
+    # 2. Deliver to Webhook URL (Discord, Teams auto-detect, or Generic)
+    if WEBHOOK_URL and WEBHOOK_URL != TEAMS_WEBHOOK_URL:
         if "discord.com/api/webhooks" in WEBHOOK_URL:
             delivered = (
                 _send_discord(
+                    WEBHOOK_URL,
+                    event,
+                    topic,
+                    tags,
+                    error,
+                    headline=headline,
+                    takeaway=takeaway,
+                    category=category,
+                    model_name=model_name,
+                    attempt=attempt,
+                )
+                or delivered
+            )
+        elif _is_teams_webhook(WEBHOOK_URL):
+            delivered = (
+                _send_teams(
                     WEBHOOK_URL,
                     event,
                     topic,
