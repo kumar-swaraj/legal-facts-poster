@@ -102,9 +102,8 @@ jobs:
       - name: Build distribution artifacts
         run: uv build
 
-      - name: Publish package to PyPI
+      - name: Publish package to PyPI via Trusted Publishing (OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-          password: ${{ secrets.PYPI_API_TOKEN }}
 
