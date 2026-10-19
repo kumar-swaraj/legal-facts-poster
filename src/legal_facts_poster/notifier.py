@@ -43,6 +43,14 @@ def _mask_url(url: str) -> str:
     return url
 
 
+try:
+    from importlib.metadata import version as _meta_version
+
+    _USER_AGENT = f"LegalFactsPoster/{_meta_version('legal-facts-poster')}"
+except Exception:
+    _USER_AGENT = "LegalFactsPoster"
+
+
 def _send_http_post(url: str, payload: dict) -> bool:
     """Dispatches a JSON POST request with a safe timeout bound."""
     if not (url.startswith("http://") or url.startswith("https://")):
@@ -54,7 +62,7 @@ def _send_http_post(url: str, payload: dict) -> bool:
             data=data,
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": "LegalFactsPoster/0.1.0",
+                "User-Agent": _USER_AGENT,
             },
             method="POST",
         )
@@ -535,7 +543,7 @@ def ping_healthcheck() -> bool:
     try:
         req = urllib.request.Request(  # noqa: S310
             HEALTHCHECK_URL,
-            headers={"User-Agent": "LegalFactsPoster/0.1.0"},
+            headers={"User-Agent": _USER_AGENT},
             method="GET",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310

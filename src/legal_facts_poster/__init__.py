@@ -2,7 +2,7 @@
 Automated Legal Poster Package
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .ai_generator import GeneratedFact, generate_new_fact
 from .browser_bot import PostResult, login_and_post

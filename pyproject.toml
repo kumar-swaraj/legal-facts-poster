@@ -1,6 +1,6 @@
 [project]
 name = "legal-facts-poster"
-version = "0.1.0"
+version = "0.1.1"
 description = "Autonomous AI agent and browser automation worker for publishing Indian legal insights"
 readme = "README.md"
 authors = [
@@ -16,6 +16,8 @@ keywords = [
     "autonomous-agent",
 ]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -23,6 +25,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Communications",
     "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -35,8 +38,10 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/kumar-swaraj/legal-facts-poster"
+Documentation = "https://github.com/kumar-swaraj/legal-facts-poster#readme"
 Repository = "https://github.com/kumar-swaraj/legal-facts-poster"
 Issues = "https://github.com/kumar-swaraj/legal-facts-poster/issues"
+Changelog = "https://github.com/kumar-swaraj/legal-facts-poster/releases"
 
 [project.optional-dependencies]
 dev = [

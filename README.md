@@ -13,6 +13,17 @@
 
 ---
 
+## ⚡ Quick Install
+
+```bash
+pip install legal-facts-poster
+playwright install chromium
+```
+
+> **Fast Verification**: Test your installation with `legal-post --version` or post an immediate sample insight with `post-once --headless`.
+
+---
+
 ### What Is This Tool?
 
 `legal-facts-poster` is an **Autonomous AI Agent Worker** that unifies three core capabilities:
