@@ -4,6 +4,11 @@ FROM mcr.microsoft.com/playwright/python:v1.49.0-noble
 # Set working directory
 WORKDIR /app
 
+# OCI Metadata linking image to repository
+LABEL org.opencontainers.image.source="https://github.com/kumar-swaraj/legal-facts-poster"
+LABEL org.opencontainers.image.description="Autonomous AI agent and browser automation worker for publishing Indian legal insights"
+LABEL org.opencontainers.image.licenses="MIT"
+
 # Install uv from official binary image for fast, reproducible installs
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
