@@ -14,6 +14,7 @@ from playwright.sync_api import (
     Error as PlaywrightError,
 )
 
+from .ai_generator import sanitize_tags
 from .config import BASE_URL, HEADLESS, PASSWORD, SESSION_FILE, USERNAME
 
 
@@ -128,22 +129,28 @@ def _ensure_authenticated(page: Page, context) -> bool:
 def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> tuple[int, list[str]]:
     """
     Selects at least `min_tags` from the platform's combobox listbox.
-    Consecutively appends comma-separated tags without clearing earlier ones.
+    Ensures input field is always completely cleared before typing each candidate
+    and prevents concatenated multi-tag selection.
     Returns a tuple of (selected_count, applied_tags_list).
     """
     tag_combobox = page.locator("input[role='combobox']").first
     tag_combobox.scroll_into_view_if_needed()
-    tag_combobox.click()
-    page.wait_for_timeout(300)
 
-    candidates = list(target_tags) + [
+    # Pre-clean candidates so no concatenated hashtags or compound strings are ever passed
+    clean_targets = sanitize_tags(target_tags)
+    fallback_pool = [
         "Law",
         "Legal",
         "Justice",
         "RuleOfLaw",
         "LegalAwareness",
         "Constitution",
+        "SupremeCourt",
     ]
+    candidates = clean_targets + [
+        f for f in fallback_pool if f.lower() not in [t.lower() for t in clean_targets]
+    ]
+
     selected_count = 0
     selected_tags: list[str] = []
     tried = set()
@@ -157,31 +164,51 @@ def _select_tags(page: Page, target_tags: list[str], min_tags: int = 2) -> tuple
         if selected_count >= min_tags:
             break
 
-        val_before = tag_combobox.input_value()
+        # Click and explicitly clear the combobox input so text never accumulates across attempts
+        tag_combobox.click()
+        tag_combobox.fill("")
+        page.wait_for_timeout(200)
+
         tag_combobox.press_sequentially(clean_cand, delay=30)
         page.wait_for_timeout(700)
 
         options = page.locator("ul[role='listbox'] button[role='option']").all()
+        selected_opt = None
         if options:
             matching_opt = None
             for opt in options:
-                if opt.inner_text().strip().lower() == clean_cand.lower():
+                opt_name = opt.inner_text().strip().lstrip("#")
+                if opt_name.lower() == clean_cand.lower():
                     matching_opt = opt
                     break
-            selected_opt = matching_opt if matching_opt else options[0]
-            opt_text = selected_opt.inner_text().strip()
+
+            if matching_opt:
+                selected_opt = matching_opt
+            else:
+                # Only use fallback options[0] if it is a clean, single-word tag
+                first_text = options[0].inner_text().strip().lstrip("#")
+                if first_text and "#" not in first_text and len(first_text) <= 25:
+                    selected_opt = options[0]
+
+        if selected_opt:
+            opt_text = selected_opt.inner_text().strip().lstrip("#")
             print(
-                f"    \033[35m🏷 Selected tag ({selected_count + 1}/{min_tags}):\033[0m \033[1m'{opt_text}'\033[0m"
+                f"    \033[35m🏷 Selected tag ({selected_count + 1}/{min_tags}):\033[0m \033[1m'#{opt_text}'\033[0m"
             )
             selected_opt.click()
             page.wait_for_timeout(600)
             selected_count += 1
             if opt_text not in selected_tags:
                 selected_tags.append(opt_text)
+            # Immediately clear the input field so subsequent tags start from a clean slate
+            with contextlib.suppress(Exception):
+                tag_combobox.fill("")
+                page.wait_for_timeout(150)
         else:
-            # Revert typed characters if no tag matched
-            tag_combobox.fill(val_before)
-            page.wait_for_timeout(200)
+            # Revert/clear typed characters if no tag matched
+            with contextlib.suppress(Exception):
+                tag_combobox.fill("")
+                page.wait_for_timeout(150)
 
     # Blur tag combobox by clicking the editor
     page.locator("div.jodit-wysiwyg, div[contenteditable='true']").first.click()

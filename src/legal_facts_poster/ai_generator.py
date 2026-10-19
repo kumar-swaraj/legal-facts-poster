@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 from openai import OpenAI
 from pydantic import BaseModel
@@ -52,6 +53,46 @@ class GeneratedFact:
         return f"GeneratedFact(topic={self.topic!r}, headline={self.headline!r}, category={self.category!r})"
 
 
+def sanitize_tags(raw_tags: list[str] | None) -> list[str]:
+    """
+    Cleans, splits, and deduplicates community tags.
+    Handles AI edge cases where multiple tags are packed into a single string:
+      - '#LegalUpdates#IndianLaw#SupremeCourt#LegalAwareness' -> ['LegalUpdates', 'IndianLaw', 'SupremeCourt', 'LegalAwareness']
+      - 'Law, Crime, Justice' -> ['Law', 'Crime', 'Justice']
+      - '#LegalAwareness #SupremeCourt' -> ['LegalAwareness', 'SupremeCourt']
+    Filters out any invalid tags (empty, too short < 2, or too long > 25 chars).
+    """
+    if not raw_tags:
+        return []
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+
+    for item in raw_tags:
+        if not item or not isinstance(item, str):
+            continue
+
+        # Insert space before '#' if preceded by a word character (e.g. 'Tag1#Tag2' -> 'Tag1 #Tag2')
+        spaced = re.sub(r"([A-Za-z0-9_])#", r"\1 #", item)
+
+        # Split by whitespace, commas, semicolons, or pipes
+        tokens = re.split(r"[\s,;|]+", spaced)
+
+        for token in tokens:
+            t = token.lstrip("#").strip()
+            # Remove any remaining non-alphanumeric chars
+            t = re.sub(r"[^A-Za-z0-9]", "", t)
+
+            if not t or len(t) < 2 or len(t) > 25:
+                continue
+
+            if t.lower() not in seen:
+                seen.add(t.lower())
+                cleaned.append(t)
+
+    return cleaned
+
+
 def _format_fact(fact: LegalFact, category: str = "", model_name: str = "") -> GeneratedFact:
     clean_bullets = []
     for b in fact.bullet_points:
@@ -70,7 +111,7 @@ def _format_fact(fact: LegalFact, category: str = "", model_name: str = "") -> G
         f"<p><em>{fact.takeaway}</em></p>"
     )
 
-    clean_tags = [t.lstrip("#").strip().replace(" ", "") for t in fact.tags if t.strip()]
+    clean_tags = sanitize_tags(fact.tags)
     return GeneratedFact(
         topic=fact.topic,
         post_html=post_html,

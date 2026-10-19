@@ -77,6 +77,7 @@ def _send_discord(
     category: str | None = None,
     model_name: str | None = None,
     attempt: int | None = None,
+    is_recurring: bool = True,
 ) -> bool:
     """Builds and delivers a rich color-coded embed to Discord."""
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -106,9 +107,14 @@ def _send_discord(
             fields.append(
                 {"name": "🎯 Attempt", "value": f"{attempt} of {MAX_RETRIES + 1}", "inline": True}
             )
-        fields.append(
-            {"name": "⏰ Next Post", "value": f"In ~{POST_INTERVAL_HOURS} hours", "inline": True}
-        )
+        if is_recurring:
+            fields.append(
+                {
+                    "name": "⏰ Next Post",
+                    "value": f"In ~{POST_INTERVAL_HOURS} hours",
+                    "inline": True,
+                }
+            )
 
         embed = {
             "title": "⚖️ Legal Fact Published Successfully",
@@ -154,6 +160,7 @@ def _send_telegram(
     headline: str | None = None,
     category: str | None = None,
     model_name: str | None = None,
+    is_recurring: bool = True,
 ) -> bool:
     """Dispatches a clean Markdown formatted notification via Telegram Bot API."""
     if event == "post_success":
@@ -170,7 +177,8 @@ def _send_telegram(
             lines.append(f"🏷 *Tags Applied:* {clean_tags}")
         if model_name:
             lines.append(f"🤖 *Model:* {model_name}")
-        lines.append(f"⏱ *Next Post:* In ~{POST_INTERVAL_HOURS} hour(s)")
+        if is_recurring:
+            lines.append(f"⏱ *Next Post:* In ~{POST_INTERVAL_HOURS} hour(s)")
         text = "\n".join(lines)
     else:
         err_msg = error[:500] if error else "Unknown error"
@@ -201,6 +209,7 @@ def _send_generic_webhook(
     category: str | None = None,
     model_name: str | None = None,
     attempt: int | None = None,
+    is_recurring: bool = True,
 ) -> bool:
     """Dispatches a standard JSON payload to any custom webhook endpoint."""
     payload = {
@@ -213,6 +222,8 @@ def _send_generic_webhook(
         "tags": tags or [],
         "attempt": attempt,
         "error": error,
+        "is_recurring": is_recurring,
+        "next_post": f"In ~{POST_INTERVAL_HOURS} hours" if is_recurring else None,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     return _send_http_post(url, payload)
@@ -236,6 +247,7 @@ def _send_teams(
     category: str | None = None,
     model_name: str | None = None,
     attempt: int | None = None,
+    is_recurring: bool = True,
 ) -> bool:
     """Builds and delivers a native Adaptive Card (v1.4) to Microsoft Teams."""
     if event == "post_success":
@@ -280,7 +292,8 @@ def _send_teams(
             facts.append({"title": "🤖 AI Model", "value": model_name})
         if attempt is not None:
             facts.append({"title": "🎯 Attempt", "value": f"{attempt} of {MAX_RETRIES + 1}"})
-        facts.append({"title": "⏰ Next Post", "value": f"In ~{POST_INTERVAL_HOURS} hours"})
+        if is_recurring:
+            facts.append({"title": "⏰ Next Post", "value": f"In ~{POST_INTERVAL_HOURS} hours"})
 
         card_body.append({"type": "FactSet", "facts": facts})
         card_body.append(
@@ -372,6 +385,7 @@ def send_notification(
     category: str | None = None,
     model_name: str | None = None,
     attempt: int | None = None,
+    is_recurring: bool = True,
 ) -> bool:
     """
     Dispatches alerts to configured targets (Discord, Teams, Telegram, or generic webhooks).
@@ -397,6 +411,7 @@ def send_notification(
                 category=category,
                 model_name=model_name,
                 attempt=attempt,
+                is_recurring=is_recurring,
             )
             or delivered
         )
@@ -416,6 +431,7 @@ def send_notification(
                     category=category,
                     model_name=model_name,
                     attempt=attempt,
+                    is_recurring=is_recurring,
                 )
                 or delivered
             )
@@ -432,6 +448,7 @@ def send_notification(
                     category=category,
                     model_name=model_name,
                     attempt=attempt,
+                    is_recurring=is_recurring,
                 )
                 or delivered
             )
@@ -448,6 +465,7 @@ def send_notification(
                     category=category,
                     model_name=model_name,
                     attempt=attempt,
+                    is_recurring=is_recurring,
                 )
                 or delivered
             )
@@ -465,6 +483,7 @@ def send_notification(
                 headline=headline,
                 category=category,
                 model_name=model_name,
+                is_recurring=is_recurring,
             )
             or delivered
         )
@@ -480,6 +499,7 @@ def notify_success(
     category: str | None = None,
     model_name: str | None = None,
     attempt: int | None = None,
+    is_recurring: bool = True,
 ) -> bool:
     """Helper to dispatch successful post publication notifications."""
     return send_notification(
@@ -491,6 +511,7 @@ def notify_success(
         category=category,
         model_name=model_name,
         attempt=attempt,
+        is_recurring=is_recurring,
     )
 
 

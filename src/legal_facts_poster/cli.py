@@ -129,7 +129,7 @@ def post_once_cli():
     if args.env_file:
         reload_config(args.env_file)
 
-    success = run_single_post(fail_fast=True, headless=args.headless)
+    success = run_single_post(fail_fast=True, headless=args.headless, is_recurring=False)
     sys.exit(0 if success else 1)
 
 

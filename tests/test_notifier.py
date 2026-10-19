@@ -286,3 +286,85 @@ def test_mask_url_sanitizes_tokens():
     masked_teams_classic = notifier._mask_url(teams_classic)
     assert "SecretIncomingWebhookToken" not in masked_teams_classic
     assert "IncomingWebhook/********/" in masked_teams_classic
+
+
+def test_send_discord_single_run_omits_next_post(monkeypatch):
+    discord_url = "https://discord.com/api/webhooks/999/xyz"
+    monkeypatch.setattr(notifier, "WEBHOOK_URL", discord_url)
+    monkeypatch.setattr(notifier, "NOTIFY_ON", "all")
+    monkeypatch.setattr(notifier, "TELEGRAM_BOT_TOKEN", "")
+
+    mock_resp = MagicMock()
+    mock_resp.status = 204
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        result = notifier.notify_success("Single Run Topic", is_recurring=False)
+        assert result is True
+        req = mock_urlopen.call_args[0][0]
+        data = json.loads(req.data.decode("utf-8"))
+        embed = data["embeds"][0]
+        field_names = [f["name"] for f in embed.get("fields", [])]
+        assert "⏰ Next Post" not in field_names
+        for f in embed.get("fields", []):
+            assert "Next Post" not in f["name"]
+            assert "Next Post" not in f["value"]
+
+
+def test_send_teams_single_run_omits_next_post(monkeypatch):
+    teams_url = "https://prod-1.westus.logic.azure.com:443/workflows/123/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=sig"
+    monkeypatch.setattr(notifier, "WEBHOOK_URL", "")
+    monkeypatch.setattr(notifier, "TEAMS_WEBHOOK_URL", teams_url)
+    monkeypatch.setattr(notifier, "NOTIFY_ON", "all")
+    monkeypatch.setattr(notifier, "TELEGRAM_BOT_TOKEN", "")
+
+    mock_resp = MagicMock()
+    mock_resp.status = 202
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        result = notifier.notify_success("Single Run Topic", is_recurring=False)
+        assert result is True
+        req = mock_urlopen.call_args[0][0]
+        data = json.loads(req.data.decode("utf-8"))
+        card = data["attachments"][0]["content"]
+        fact_set = next(b for b in card["body"] if b.get("type") == "FactSet")
+        fact_titles = [f["title"] for f in fact_set["facts"]]
+        assert "⏰ Next Post" not in fact_titles
+
+
+def test_send_telegram_single_run_omits_next_post(monkeypatch):
+    monkeypatch.setattr(notifier, "WEBHOOK_URL", "")
+    monkeypatch.setattr(notifier, "TELEGRAM_BOT_TOKEN", "12345:TOKEN")
+    monkeypatch.setattr(notifier, "TELEGRAM_CHAT_ID", "999888")
+    monkeypatch.setattr(notifier, "NOTIFY_ON", "all")
+
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        result = notifier.notify_success("Single Run Topic", is_recurring=False)
+        assert result is True
+        req = mock_urlopen.call_args[0][0]
+        data = json.loads(req.data.decode("utf-8"))
+        assert "Next Post" not in data["text"]
+
+
+def test_send_generic_webhook_single_run(monkeypatch):
+    generic_url = "https://my-server.example.com/webhook"
+    monkeypatch.setattr(notifier, "WEBHOOK_URL", generic_url)
+    monkeypatch.setattr(notifier, "NOTIFY_ON", "all")
+    monkeypatch.setattr(notifier, "TELEGRAM_BOT_TOKEN", "")
+
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        result = notifier.notify_success("Single Run Topic", is_recurring=False)
+        assert result is True
+        req = mock_urlopen.call_args[0][0]
+        payload = json.loads(req.data.decode("utf-8"))
+        assert payload["is_recurring"] is False
+        assert payload["next_post"] is None

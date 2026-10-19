@@ -27,7 +27,11 @@ YELLOW = "\033[33m"
 RED = "\033[31m"
 
 
-def run_single_post(fail_fast: bool = False, headless: bool | None = None) -> bool:
+def run_single_post(
+    fail_fast: bool = False,
+    headless: bool | None = None,
+    is_recurring: bool = False,
+) -> bool:
     """
     Executes a single end-to-end posting cycle with automatic retry on temporary failures.
     """
@@ -59,6 +63,7 @@ def run_single_post(fail_fast: bool = False, headless: bool | None = None) -> bo
                     category=getattr(fact, "category", ""),
                     model_name=getattr(fact, "model_name", ""),
                     attempt=attempt,
+                    is_recurring=is_recurring,
                 )
                 ping_healthcheck()
                 print(
@@ -102,7 +107,8 @@ def run_schedule_loop(
 
     if run_immediately:
         print(f"\n{DIM}Executing immediate initial post...{RESET}")
-        if run_single_post(fail_fast=True, headless=headless):
+        is_recurring = max_posts is None or max_posts > 1
+        if run_single_post(fail_fast=True, headless=headless, is_recurring=is_recurring):
             posts_completed += 1
 
         if max_posts is not None and posts_completed >= max_posts:
@@ -142,7 +148,8 @@ def run_schedule_loop(
         if stop_requested:
             return
 
-        if run_single_post(fail_fast=False, headless=headless):
+        is_recurring = max_posts is None or ((posts_completed + 1) < max_posts)
+        if run_single_post(fail_fast=False, headless=headless, is_recurring=is_recurring):
             posts_completed += 1
             if max_posts is not None and posts_completed >= max_posts:
                 print(
