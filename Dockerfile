@@ -12,18 +12,12 @@ ENV PYTHONUNBUFFERED=1 \
     HEADLESS=true \
     PYTHONDONTWRITEBYTECODE=1
 
-# Copy dependency specifications first for Docker layer caching
-COPY pyproject.toml uv.lock ./
-
-# Install project dependencies into system environment using uv
-RUN uv pip install --system --frozen -e .
-
-# Copy source code and documentation
+# Copy project definition, licenses, and source code
+COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src/ ./src/
-COPY README.md LICENSE ./
 
-# Re-install package in editable mode to register CLI console scripts
-RUN uv pip install --system --no-deps -e .
+# Install dependencies and package into system environment using uv
+RUN uv pip install --system --frozen -e .
 
 # Ensure ownership and configure non-root user (pwuser is pre-created by Microsoft Playwright image)
 RUN chown -R pwuser:pwuser /app
