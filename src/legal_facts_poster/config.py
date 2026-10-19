@@ -235,7 +235,7 @@ def validate_config() -> None:
                     return
             except (KeyboardInterrupt, EOFError):
                 print()
-                sys.exit(0)
+                sys.exit(130)
 
         raise ValueError(
             f"Missing required environment variables: {', '.join(missing)}.\n"

@@ -53,7 +53,7 @@ def test_validate_and_get_session_empty_file(tmp_path):
 
 def test_ensure_authenticated_fails_when_stuck_on_login(monkeypatch):
     mock_page = MagicMock()
-    mock_page.url = "https://beta.lawtribe.com/login"
+    mock_page.url = "https://example.com/login"
     mock_context = MagicMock()
 
     # If wait_for_url times out on login
