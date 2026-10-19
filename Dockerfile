@@ -24,7 +24,7 @@ COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src/ ./src/
 
 # Install dependencies and package into system environment using uv
-RUN uv pip install --system --break-system-packages --frozen -e .
+RUN uv pip install --system --break-system-packages -e .
 
 # Ensure ownership and configure non-root user (pwuser is pre-created by Microsoft Playwright image)
 RUN chown -R pwuser:pwuser /app
