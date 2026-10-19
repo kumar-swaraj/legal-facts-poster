@@ -1,3 +1,4 @@
+import contextlib
 import secrets
 import signal
 import sys
@@ -105,6 +106,21 @@ def run_schedule_loop(
         f"{CYAN}Interval:{RESET} every {interval} hour(s) | {CYAN}Max posts:{RESET} {max_posts or 'Infinite'} | {CYAN}Headless:{RESET} {headless}"
     )
 
+    stop_requested = False
+
+    def handle_shutdown(signum, frame):  # type: ignore[no-untyped-def]
+        nonlocal stop_requested
+        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+        exit_code = 143 if signum == signal.SIGTERM else 130
+        print(f"\n{YELLOW}Received {sig_name}. Exiting agent gracefully. Goodbye!{RESET}")
+        stop_requested = True
+        sys.exit(exit_code)
+
+    with contextlib.suppress(ValueError):
+        signal.signal(signal.SIGINT, handle_shutdown)
+        if hasattr(signal, "SIGTERM"):
+            signal.signal(signal.SIGTERM, handle_shutdown)
+
     if run_immediately:
         print(f"\n{DIM}Executing immediate initial post...{RESET}")
         is_recurring = max_posts is None or max_posts > 1
@@ -116,18 +132,6 @@ def run_schedule_loop(
                 f"\n{BOLD}{GREEN}✓ Reached requested post count ({max_posts}). Exiting cleanly.{RESET}"
             )
             return
-
-    stop_requested = False
-
-    def handle_shutdown(signum, frame):  # type: ignore[no-untyped-def]
-        nonlocal stop_requested
-        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
-        print(f"\n{YELLOW}Received {sig_name}. Exiting agent gracefully. Goodbye!{RESET}")
-        stop_requested = True
-
-    signal.signal(signal.SIGINT, handle_shutdown)
-    if hasattr(signal, "SIGTERM"):
-        signal.signal(signal.SIGTERM, handle_shutdown)
 
     def scheduled_job():
         nonlocal posts_completed
@@ -170,5 +174,4 @@ def run_schedule_loop(
             time.sleep(1)
     except KeyboardInterrupt:
         print(f"\n{YELLOW}Exiting agent gracefully upon user request (Ctrl+C). Goodbye!{RESET}")
-    finally:
-        sys.exit(0)
+        sys.exit(130)

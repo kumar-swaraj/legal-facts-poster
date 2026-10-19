@@ -129,8 +129,12 @@ def post_once_cli():
     if args.env_file:
         reload_config(args.env_file)
 
-    success = run_single_post(fail_fast=True, headless=args.headless, is_recurring=False)
-    sys.exit(0 if success else 1)
+    try:
+        success = run_single_post(fail_fast=True, headless=args.headless, is_recurring=False)
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\033[33m✕ Operation cancelled by user (Ctrl+C). Exiting.\033[0m")
+        sys.exit(130)
 
 
 def main():
@@ -157,12 +161,16 @@ def main():
         reload_config(args.env_file)
 
     max_posts = 1 if args.once else args.num_posts
-    run_schedule_loop(
-        interval_hours=args.interval,
-        max_posts=max_posts,
-        headless=args.headless,
-        run_immediately=args.run_immediately,
-    )
+    try:
+        run_schedule_loop(
+            interval_hours=args.interval,
+            max_posts=max_posts,
+            headless=args.headless,
+            run_immediately=args.run_immediately,
+        )
+    except KeyboardInterrupt:
+        print("\n\033[33m✕ Agent stopped by user (Ctrl+C). Exiting.\033[0m")
+        sys.exit(130)
 
 
 if __name__ == "__main__":

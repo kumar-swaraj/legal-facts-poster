@@ -23,3 +23,31 @@ def test_cli_custom_flags(monkeypatch):
 def test_version_string():
     assert isinstance(__version__, str)
     assert len(__version__.split(".")) == 3
+
+
+def test_post_once_cli_keyboard_interrupt_exit_130(monkeypatch):
+    from unittest.mock import patch
+
+    import pytest
+
+    from legal_facts_poster.cli import post_once_cli
+
+    monkeypatch.setattr("sys.argv", ["post-once"])
+    with patch("legal_facts_poster.cli.run_single_post", side_effect=KeyboardInterrupt):
+        with pytest.raises(SystemExit) as exc:
+            post_once_cli()
+        assert exc.value.code == 130
+
+
+def test_main_keyboard_interrupt_exit_130(monkeypatch):
+    from unittest.mock import patch
+
+    import pytest
+
+    from legal_facts_poster.cli import main
+
+    monkeypatch.setattr("sys.argv", ["legal-post"])
+    with patch("legal_facts_poster.cli.run_schedule_loop", side_effect=KeyboardInterrupt):
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 130

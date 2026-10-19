@@ -1,6 +1,7 @@
 import contextlib
 import getpass
 import os
+import sys
 
 from .config import PROVIDER_DEFAULTS, reload_config
 
@@ -27,11 +28,7 @@ PROVIDERS = [
 ]
 
 
-def run_wizard() -> None:
-    """
-    Interactive terminal setup wizard for configuring Legal Facts Poster.
-    Prompts for credentials, AI model provider, and saves securely.
-    """
+def _run_wizard_interactive() -> None:
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════════════════╗{RESET}")
     print(f"{BOLD}{CYAN}║           Legal Facts Poster — Interactive Setup             ║{RESET}")
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════════════════╝{RESET}\n")
@@ -192,6 +189,15 @@ def run_wizard() -> None:
         f"  {CYAN}post-once{RESET}       {DIM}# Publish a single legal insight immediately{RESET}"
     )
     print(f"  {CYAN}legal-post{RESET}      {DIM}# Start autonomous recurring posting loop{RESET}\n")
+
+
+def run_wizard() -> None:
+    """Interactive terminal setup wizard for configuring Legal Facts Poster."""
+    try:
+        _run_wizard_interactive()
+    except KeyboardInterrupt:
+        print(f"\n\n{YELLOW}Setup wizard cancelled by user (Ctrl+C). Exiting.{RESET}")
+        sys.exit(130)
 
 
 if __name__ == "__main__":
