@@ -1,0 +1,27 @@
+name: Update Release Notes
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/update-release.yml'
+      - 'RELEASE_NOTES.md'
+
+permissions:
+  contents: write
+
+jobs:
+  update-release:
+    name: Update v0.1.0 Release Description & Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Update v0.1.0 Release and Remove default.gitignore
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit v0.1.0 --notes-file RELEASE_NOTES.md
+          gh release delete-asset v0.1.0 default.gitignore -y || true
