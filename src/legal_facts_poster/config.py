@@ -261,7 +261,7 @@ AI_PROVIDER="gemini"
 AI_API_KEY="your-api-key"
 
 # Optional AI model & endpoint overrides:
-# AI_MODEL="gemini-2.5-flash"   # e.g. "gpt-4o-mini", "claude-3-5-haiku-20241022", "deepseek-chat", "grok-2-latest", "llama-3.3-70b-versatile"
+# AI_MODEL="gemini-3.5-flash"   # e.g. "gpt-4o-mini", "claude-3-5-haiku-20241022", "deepseek-chat", "grok-2-latest", "llama-3.3-70b-versatile"
 # AI_BASE_URL=""                # Custom endpoint for Ollama (http://localhost:11434/v1), vLLM, or private proxy
 
 # 3. Target Platform URL (Required)

@@ -1,6 +1,9 @@
 # Legal Facts Poster (`legal-facts-poster`)
 > **An Autonomous AI Agent & Browser Automation Worker for Legal Community Feeds**
 
+[![PyPI version](https://img.shields.io/pypi/v/legal-facts-poster.svg?color=blue)](https://pypi.org/project/legal-facts-poster/)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker&logoColor=white)](https://github.com/kumar-swaraj/legal-facts-poster/pkgs/container/legal-facts-poster)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/legal-facts-poster.svg)](https://pypi.org/project/legal-facts-poster/)
 [![CI](https://github.com/kumar-swaraj/legal-facts-poster/actions/workflows/ci.yml/badge.svg)](https://github.com/kumar-swaraj/legal-facts-poster/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
@@ -26,36 +29,55 @@
 
 - **Jurisprudence Domain Rotation**: Rotates through core branches of Indian law (Constitutional Law, Criminal Law, Consumer Protection, Cyber Law, Citizen Rights, and Commercial Law).
 - **Rich Text Formatting**: Emits native HTML (`<strong>`, `<ul><li>`, `<em>`) into the platform's WYSIWYG editor so headlines, bullet lists, and takeaways render with true typography.
-- **Interactive Multi-Tag Selection**: Selects at least 2 relevant community tags via the platform's combobox with automatic fallback.
-- **Session Persistence**: Stores authenticated session state (`session.json`) after initial login, eliminating repetitive logins and accelerating subsequent post cycles.
+- **Intelligent Tag Sanitizer**: Automatically cleans, formats, and deduplicates community hashtags, eliminating compound tag strings.
+- **Session Persistence**: Stores authenticated session state (`session.json`) after initial login with secure `0600` permissions, eliminating repetitive logins and accelerating subsequent post cycles.
 - **Configurable Scheduling with Jitter**: Supports custom hourly post intervals with optional humanized jitter (±5–10 minutes) to avoid predictable robot-like posting times.
-- **Reliability & Auto-Retry**: Automatically retries on network hiccups before falling back to the schedule loop.
-- **Pip-Installable CLI**: Clean package structure supporting direct command line invocation (`legal-post` or `legal-facts-poster`).
+- **Reliability & Auto-Retry**: Automatically retries on temporary hiccups with POSIX-standard signal handling (`130`/`143`).
+- **Multi-Channel Alerting**: Dispatches instant notifications to Discord (rich embeds), Microsoft Teams (Adaptive Cards v1.4), Telegram, and generic webhooks with automatic token masking.
+- **Pip & Docker Ready**: Officially available on PyPI (`pip install legal-facts-poster`) and GitHub Container Registry (`ghcr.io`).
 
 ---
 
 ## Installation & Quick Start
 
-### 1. Isolated CLI Install (Recommended)
-Install the standalone CLI globally in an isolated environment without polluting your system Python:
+### 1. Official Install via `pip` (Recommended)
 ```bash
-uv tool install git+https://github.com/kumar-swaraj/legal-facts-poster.git
-uv run playwright install chromium
+pip install legal-facts-poster
+playwright install chromium
 ```
-Check your installed version:
+
+Verify your installation:
 ```bash
 legal-post --version
 ```
 
-### 2. Ephemeral Zero-Install (On-Demand via `uvx`)
-Run directly without installing any packages:
+### 2. Isolated CLI Install via `uv tool`
+Install the standalone CLI globally in an isolated virtual environment:
 ```bash
-uvx --from git+https://github.com/kumar-swaraj/legal-facts-poster.git post-once --help
+uv tool install legal-facts-poster
+playwright install chromium
 ```
 
-### 3. Local Development (`uv` / `pip`)
+### 3. Containerized Deployment via Docker (Zero Local Setup)
+Pull and run the pre-built, hardened non-root container from GitHub Container Registry:
 ```bash
-# Clone and install with dev tools
+docker pull ghcr.io/kumar-swaraj/legal-facts-poster:latest
+
+# Run a single post (headless by default):
+docker run --rm --env-file .env ghcr.io/kumar-swaraj/legal-facts-poster:latest post-once
+
+# Or run the autonomous recurring background daemon:
+docker run -d --restart unless-stopped --name legal-poster --env-file .env ghcr.io/kumar-swaraj/legal-facts-poster:latest
+```
+
+### 4. Ephemeral Zero-Install (On-Demand via `uvx`)
+Run directly without installing any package into your environment:
+```bash
+uvx legal-facts-poster post-once --help
+```
+
+### 5. Local Development (`uv` / `pip`)
+```bash
 git clone https://github.com/kumar-swaraj/legal-facts-poster.git
 cd legal-facts-poster
 uv pip install -e ".[dev]"
@@ -133,7 +155,7 @@ You can use any of the following AI providers by setting `AI_PROVIDER` and your 
 
 | Provider | `AI_PROVIDER` | Default Model | Get API Key |
 | :--- | :--- | :--- | :--- |
-| **Google Gemini** | `gemini` | `gemini-2.5-flash` | [Google AI Studio](https://aistudio.google.com/) |
+| **Google Gemini** | `gemini` | `gemini-3.5-flash` | [Google AI Studio](https://aistudio.google.com/) |
 | **OpenAI** | `openai` | `gpt-4o-mini` | [OpenAI Platform](https://platform.openai.com/api-keys) |
 | **Anthropic Claude** | `claude` | `claude-3-5-haiku-20241022` | [Anthropic Console](https://console.anthropic.com/) |
 | **DeepSeek** | `deepseek` | `deepseek-chat` | [DeepSeek Platform](https://platform.deepseek.com/) |
