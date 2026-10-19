@@ -10,14 +10,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 # Environment settings: headless execution, unbuffered logs, pre-installed browsers
 ENV PYTHONUNBUFFERED=1 \
     HEADLESS=true \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_SYSTEM_PYTHON=1 \
+    UV_BREAK_SYSTEM_PACKAGES=1
 
 # Copy project definition, licenses, and source code
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src/ ./src/
 
 # Install dependencies and package into system environment using uv
-RUN uv pip install --system --frozen -e .
+RUN uv pip install --system --break-system-packages --frozen -e .
 
 # Ensure ownership and configure non-root user (pwuser is pre-created by Microsoft Playwright image)
 RUN chown -R pwuser:pwuser /app
