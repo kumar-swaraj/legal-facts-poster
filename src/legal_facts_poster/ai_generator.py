@@ -215,22 +215,26 @@ def _attempt_provider_models(
             )
 
             fact = None
-            # Attempt 1: Native Pydantic parse
-            try:
-                response = client.beta.chat.completions.parse(
-                    model=model_name,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return valid JSON matching the schema.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    response_format=LegalFact,
-                )
-                fact = response.choices[0].message.parsed
-            except Exception:
-                # Attempt 2: Universal JSON object mode fallback
+            # Attempt 1: Native Pydantic parse (OpenAI official only)
+            if provider == "openai":
+                try:
+                    response = client.beta.chat.completions.parse(
+                        model=model_name,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "You are an expert legal scholar specializing in Indian jurisprudence and citizen legal awareness. Return valid JSON matching the schema.",
+                            },
+                            {"role": "user", "content": prompt},
+                        ],
+                        response_format=LegalFact,
+                    )
+                    fact = response.choices[0].message.parsed
+                except Exception:
+                    fact = None
+
+            if fact is None:
+                # Universal JSON object mode (compatible across Gemini, Groq, DeepSeek, Ollama, OpenAI)
                 schema_instructions = prompt + (
                     "\n\nReturn strict JSON format with exactly these keys:\n"
                     "{\n"
