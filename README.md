@@ -146,6 +146,7 @@ legal-post --env-file /path/to/my-secrets.env
 | `AI_BASE_URL` | Optional custom OpenAI-compatible endpoint URL (for Ollama, vLLM, etc.) | Provider default |
 | `BASE_URL` | Target platform base URL (e.g. `https://your-platform-domain.com`) | *Required* |
 | `HEADLESS` | Run browser in background (`true` or `false`) | `false` |
+| `BROWSER_CHANNEL` | Optional system browser to skip 200MB download (`chrome`, `msedge`) | `""` (Bundled Chromium) |
 | `POST_INTERVAL_HOURS`| Interval in hours between automated posts | `4.0` |
 | `ENABLE_JITTER` | Apply random delay (±5-10m) before posting | `true` |
 | `JITTER_MAX_MINUTES` | Maximum jitter minutes | `10` |
@@ -159,6 +160,11 @@ legal-post --env-file /path/to/my-secrets.env
 | `TELEGRAM_CHAT_ID` | Telegram chat ID to receive alert messages | `""` (Disabled) |
 | `NOTIFY_ON` | Alert level: `all` (posts + errors) or `failures_only` | `all` |
 | `HEALTHCHECK_URL` | Dead-man's switch ping URL (Healthchecks.io) | `""` (Disabled) |
+
+> 💡 **Browser Modes & Cloudflare Human Verification**:
+> - **Visible Window (`HEADLESS=false`)**: Recommended for initial runs, testing, or if the target platform displays a **Cloudflare Turnstile verification challenge**. Solve the checkbox once in the visible browser; session cookies will be saved to `session.json` and reused automatically.
+> - **Background Mode (`HEADLESS=true`)**: Runs completely in the background without popup windows. Ideal for servers, VPS, Docker, cron jobs, and unattended 24/7 background posting.
+> - **Skip 200MB Download**: Set `BROWSER_CHANNEL=chrome` to use your existing Google Chrome instead of downloading the Playwright Chromium bundle.
 
 ### Supported AI Providers
 

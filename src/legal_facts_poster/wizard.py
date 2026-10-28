@@ -1,8 +1,9 @@
 import contextlib
-import getpass
+import io
 import os
 import sys
 
+from .browser_bot import detect_system_browser, install_browser, is_browser_installed
 from .config import PROVIDER_DEFAULTS, reload_config
 
 # ANSI Color Codes
@@ -28,6 +29,123 @@ PROVIDERS = [
 ]
 
 
+def mask_secret(val: str, show_first: int = 4, show_last: int = 4) -> str:
+    """Masks secret with asterisks, preserving prefix and suffix for identification if long enough."""
+    if not val:
+        return "(empty)"
+    if show_first == 0 and show_last == 0:
+        return "*" * min(len(val), 16)
+    if len(val) <= (show_first + show_last):
+        return "*" * len(val)
+    return f"{val[:show_first]}{'*' * 8}{val[-show_last:]}"
+
+
+def get_masked_input(prompt: str = "") -> str:
+    """
+    Reads sensitive input (e.g. password, API key) from the terminal while
+    echoing '*' for each character entered (similar to Ubuntu's pwfeedback).
+
+    Handles character typing, clipboard pasting (multi-character chunks),
+    Backspace/Delete (erasing asterisks with \\b \\b), Enter (\\r or \\n),
+    Ctrl+C (KeyboardInterrupt), and Ctrl+D (EOF).
+    Falls back gracefully to standard readline/getpass if stdin is not a TTY.
+    """
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+
+    # Non-interactive / piped / non-TTY fallback
+    if not sys.stdin.isatty():
+        try:
+            return sys.stdin.readline().rstrip("\r\n")
+        except Exception:
+            import getpass
+
+            return getpass.getpass("")
+
+    # Windows implementation via msvcrt
+    if sys.platform == "win32":
+        try:
+            import msvcrt
+
+            chars_win: list[str] = []
+            while True:
+                ch = msvcrt.getch()
+                if ch in (b"\r", b"\n"):
+                    sys.stdout.write("\r\n")
+                    sys.stdout.flush()
+                    return "".join(chars_win)
+                elif ch == b"\x03":  # Ctrl+C
+                    sys.stdout.write("\r\n")
+                    sys.stdout.flush()
+                    raise KeyboardInterrupt
+                elif ch in (b"\x08", b"\x7f"):  # Backspace
+                    if chars_win:
+                        chars_win.pop()
+                        sys.stdout.write("\b \b")
+                        sys.stdout.flush()
+                else:
+                    try:
+                        char = ch.decode("utf-8")
+                    except UnicodeDecodeError:
+                        continue
+                    if char >= " " or char == "\t":
+                        chars_win.append(char)
+                        sys.stdout.write("*")
+                        sys.stdout.flush()
+        except ImportError:
+            import getpass
+
+            return getpass.getpass("").strip()
+
+    # Unix (macOS, Linux) implementation via termios / tty
+    try:
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+    except (io.UnsupportedOperation, ValueError, Exception):
+        import getpass
+
+        return getpass.getpass("").strip()
+
+    chars: list[str] = []
+    try:
+        tty.setraw(fd)
+        while True:
+            chunk = os.read(fd, 1024).decode("utf-8", errors="replace")
+            if not chunk:
+                break
+            for c in chunk:
+                if c in ("\r", "\n"):
+                    sys.stdout.write("\r\n")
+                    sys.stdout.flush()
+                    return "".join(chars)
+                elif c == "\x03":  # Ctrl+C
+                    sys.stdout.write("\r\n")
+                    sys.stdout.flush()
+                    raise KeyboardInterrupt
+                elif c == "\x04":  # Ctrl+D (EOF)
+                    sys.stdout.write("\r\n")
+                    sys.stdout.flush()
+                    return "".join(chars)
+                elif c in ("\x08", "\x7f"):  # Backspace / Delete
+                    if chars:
+                        chars.pop()
+                        sys.stdout.write("\b \b")
+                        sys.stdout.flush()
+                elif c >= " " or c == "\t":
+                    chars.append(c)
+                    sys.stdout.write("*")
+                    sys.stdout.flush()
+        sys.stdout.write("\r\n")
+        sys.stdout.flush()
+        return "".join(chars)
+    finally:
+        with contextlib.suppress(Exception):
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+
 def _run_wizard_interactive() -> None:
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════════════════╗{RESET}")
     print(f"{BOLD}{CYAN}║           Legal Facts Poster — Interactive Setup             ║{RESET}")
@@ -42,6 +160,7 @@ def _run_wizard_interactive() -> None:
     existing_base_url = os.getenv("BASE_URL", "")
     existing_provider = os.getenv("AI_PROVIDER", "gemini").lower()
     existing_ai_key = os.getenv("AI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")
+    existing_channel = os.getenv("BROWSER_CHANNEL", "").strip().lower()
 
     # 1. Platform Username
     u_prompt = f"{BOLD}1. Platform Email / Username{RESET}"
@@ -53,14 +172,14 @@ def _run_wizard_interactive() -> None:
         print(f"  {RED}✕ Username cannot be empty.{RESET}")
         username = input(u_prompt).strip()
 
-    # 2. Platform Password
-    p_prompt = f"{BOLD}2. Platform Password{RESET} {DIM}(hidden while typing){RESET}: "
-    password = getpass.getpass(p_prompt).strip()
+    # 2. Platform Password (masked with * pwfeedback)
+    p_prompt = f"{BOLD}2. Platform Password{RESET} {DIM}(masked with *){RESET}: "
+    password = get_masked_input(p_prompt).strip()
     if not password:
         password = os.getenv("MY_SITE_PASSWORD") or ""
     while not password:
         print(f"  {RED}✕ Password cannot be empty.{RESET}")
-        password = getpass.getpass(p_prompt).strip()
+        password = get_masked_input(p_prompt).strip()
 
     # 3. AI Provider Selection
     print(f"\n{BOLD}3. Choose your AI Provider:{RESET}")
@@ -83,7 +202,7 @@ def _run_wizard_interactive() -> None:
     chosen_provider, chosen_name, chosen_url = PROVIDERS[chosen_idx - 1]
     print(f"  {GREEN}✓ Selected: {BOLD}{chosen_name}{RESET}\n")
 
-    # 4. AI API Key
+    # 4. AI API Key (masked with * pwfeedback)
     ai_key = ""
     ai_base_url = ""
     ai_model = ""
@@ -101,22 +220,22 @@ def _run_wizard_interactive() -> None:
             print(f"  {RED}✕ Model name cannot be empty for custom provider.{RESET}")
             ai_model = input(model_prompt).strip()
 
-        key_prompt = f"{BOLD}API Key{RESET} {DIM}(press Enter if not required / local){RESET}: "
-        ai_key = getpass.getpass(key_prompt).strip() or "none"
+        key_prompt = f"{BOLD}API Key{RESET} {DIM}(press Enter if not required / local, masked with *){RESET}: "
+        ai_key = get_masked_input(key_prompt).strip() or "none"
     else:
         key_label = f"{chosen_name} API Key"
         if existing_ai_key and chosen_provider == existing_provider:
-            masked = existing_ai_key[:6] + "..." + existing_ai_key[-4:]
-            k_prompt = f"{BOLD}{key_label}{RESET} {DIM}[{masked}]{RESET}: "
+            masked = mask_secret(existing_ai_key, show_first=6, show_last=4)
+            k_prompt = f"{BOLD}{key_label}{RESET} {DIM}[{masked}, masked with *]{RESET}: "
         else:
-            k_prompt = f"{BOLD}{key_label}{RESET} {DIM}(from {chosen_url}){RESET}: "
+            k_prompt = f"{BOLD}{key_label}{RESET} {DIM}(from {chosen_url}, masked with *){RESET}: "
 
-        ai_key = getpass.getpass(k_prompt).strip()
+        ai_key = get_masked_input(k_prompt).strip()
         if not ai_key and chosen_provider == existing_provider and existing_ai_key:
             ai_key = existing_ai_key
         while not ai_key:
             print(f"  {RED}✕ API Key cannot be empty.{RESET}")
-            ai_key = getpass.getpass(k_prompt).strip()
+            ai_key = get_masked_input(k_prompt).strip()
 
         # Optional model override
         def_models = PROVIDER_DEFAULTS.get(chosen_provider, {}).get("models", [])
@@ -133,15 +252,66 @@ def _run_wizard_interactive() -> None:
     base_url = input(url_prompt).strip() or default_url
     base_url = base_url.rstrip("/")
 
-    # 6. Headless mode preference
-    h_prompt = f"{BOLD}5. Run browser in background (headless)?{RESET} {DIM}[y/N]{RESET}: "
+    # 6. Headless mode preference with clear explanations
+    print(f"\n{BOLD}5. Browser Mode (Headless vs Visible Window):{RESET}")
+    print(
+        f"   {CYAN}• Headless (true){RESET}  : Runs silently in the background with no window popups."
+    )
+    print(
+        "                       Best for servers, VPS, Docker, cron jobs, and 24/7 background posting."
+    )
+    print(
+        f"   {CYAN}• Visible  (false){RESET} : Opens a live browser window so you can watch login & typing in real-time."
+    )
+    print(
+        f"                       {YELLOW}Recommended for first run, testing, or if Cloudflare checks appear!{RESET}"
+    )
+    h_prompt = f"Run in background (headless)? {DIM}[y/N, default: N]{RESET}: "
     headless_resp = input(h_prompt).strip().lower()
     headless_val = "true" if headless_resp in ("y", "yes") else "false"
 
-    # 7. Optional Alerting Webhook URL (Discord / MS Teams / Slack / Generic)
+    # 7. Browser Engine & Installation Verification
+    print(f"\n{BOLD}6. Browser Engine & Setup Verification:{RESET}")
+    sys_browser = detect_system_browser()
+    channel_to_save = existing_channel
+
+    if sys_browser:
+        print(f"  {GREEN}✓ Detected installed system {sys_browser.title()} on your machine!{RESET}")
+        print(
+            f"  {DIM}Playwright can use this directly to skip downloading the ~200MB Chromium bundle.{RESET}"
+        )
+        use_sys = (
+            input(
+                f"Use system {sys_browser.title()} (skips 200MB download)? {DIM}[Y/n, default: Y]{RESET}: "
+            )
+            .strip()
+            .lower()
+        )
+        if use_sys not in ("n", "no"):
+            channel_to_save = sys_browser
+            print(f"  {GREEN}✓ Configured BROWSER_CHANNEL='{sys_browser}'.{RESET}")
+        else:
+            channel_to_save = ""
+    else:
+        # Check if Playwright bundled browser is installed
+        if not is_browser_installed():
+            print(f"  {YELLOW}⚡ Playwright Chromium is not yet installed on this system.{RESET}")
+            do_install = (
+                input(
+                    f"Would you like to download and install Chromium now? {DIM}[Y/n, default: Y]{RESET}: "
+                )
+                .strip()
+                .lower()
+            )
+            if do_install not in ("n", "no"):
+                install_browser(retries=3)
+        else:
+            print(f"  {GREEN}✓ Playwright Chromium browser binary is verified and ready.{RESET}")
+
+    # 8. Optional Alerting Webhook URL (Discord / MS Teams / Slack / Generic)
     existing_webhook = os.getenv("TEAMS_WEBHOOK_URL", "") or os.getenv("WEBHOOK_URL", "")
     w_prompt = (
-        f"{BOLD}6. Alert Webhook URL (Discord / MS Teams / Slack){RESET} "
+        f"\n{BOLD}7. Alert Webhook URL (Discord / MS Teams / Slack){RESET} "
         f"{DIM}(optional, press Enter to skip){RESET}: "
     )
     webhook_val = input(w_prompt).strip() or existing_webhook
@@ -160,6 +330,8 @@ def _run_wizard_interactive() -> None:
             f.write(f'AI_BASE_URL="{ai_base_url}"\n')
         f.write(f'BASE_URL="{base_url}"\n')
         f.write(f"HEADLESS={headless_val}\n")
+        if channel_to_save:
+            f.write(f'BROWSER_CHANNEL="{channel_to_save}"\n')
         f.write("POST_INTERVAL_HOURS=4.0\n")
         f.write("ENABLE_JITTER=true\n")
         f.write("JITTER_MAX_MINUTES=10\n")
@@ -181,14 +353,68 @@ def _run_wizard_interactive() -> None:
 
     reload_config(env_file)
 
-    print(f"\n{BOLD}{GREEN}✓ Configuration saved successfully!{RESET}")
-    print(f"{DIM}Saved to: {env_file} (secured with 0600 permissions){RESET}\n")
-    print(f"{BOLD}Configured AI Provider:{RESET} {CYAN}{chosen_name}{RESET}")
-    print(f"{BOLD}You can now run:{RESET}")
-    print(
-        f"  {CYAN}post-once{RESET}       {DIM}# Publish a single legal insight immediately{RESET}"
+    # Clean, comprehensive summary report
+    print(f"\n{BOLD}{GREEN}╔══════════════════════════════════════════════════════════════╗{RESET}")
+    print(f"{BOLD}{GREEN}║             Configuration Saved & Verified!                  ║{RESET}")
+    print(f"{BOLD}{GREEN}╚══════════════════════════════════════════════════════════════╝{RESET}\n")
+
+    masked_pwd = mask_secret(password, show_first=0, show_last=0)
+    masked_key = mask_secret(ai_key, show_first=6, show_last=4)
+    masked_hook = (
+        f"{webhook_val[:28]}...****"
+        if len(webhook_val) > 30
+        else (webhook_val if webhook_val else "None (Disabled)")
     )
-    print(f"  {CYAN}legal-post{RESET}      {DIM}# Start autonomous recurring posting loop{RESET}\n")
+    mode_label = (
+        f"{CYAN}Background / Headless (HEADLESS=true){RESET}"
+        if headless_val == "true"
+        else f"{GREEN}Visible Window (HEADLESS=false){RESET}"
+    )
+    engine_label = (
+        f"System {channel_to_save.title()} (BROWSER_CHANNEL={channel_to_save})"
+        if channel_to_save
+        else "Playwright Chromium"
+    )
+
+    print(f"{BOLD}Configuration Summary:{RESET}")
+    print(
+        f"  • {BOLD}Config File Location:{RESET} {CYAN}{env_file}{RESET} {DIM}(mode: 0600){RESET}"
+    )
+    print(f"  • {BOLD}Platform URL        :{RESET} {base_url}")
+    print(f"  • {BOLD}Username / Email    :{RESET} {username}")
+    print(f"  • {BOLD}Password            :{RESET} {DIM}{masked_pwd}{RESET}")
+    print(
+        f"  • {BOLD}AI Provider         :{RESET} {chosen_name} {DIM}({ai_model or 'default'}){RESET}"
+    )
+    print(f"  • {BOLD}AI API Key          :{RESET} {DIM}{masked_key}{RESET}")
+    print(f"  • {BOLD}Browser Mode        :{RESET} {mode_label}")
+    print(f"  • {BOLD}Browser Engine      :{RESET} {engine_label}")
+    print(f"  • {BOLD}Alerting Webhook    :{RESET} {DIM}{masked_hook}{RESET}\n")
+
+    print(f"{BOLD}{YELLOW}💡 Understanding Browser Modes & Cloudflare Verification:{RESET}")
+    print(
+        f"  {CYAN}HEADLESS=true{RESET}  : Runs invisibly in the background. Use for unattended servers or cron jobs."
+    )
+    print(
+        f"  {CYAN}HEADLESS=false{RESET} : Opens a visible Chromium window. Use this for testing, initial login, or"
+    )
+    print(
+        "                   if the community platform presents a Cloudflare human verification checkbox!"
+    )
+    print(
+        f"                   {DIM}Once logged in visibly, cookies are saved to session.json and reused automatically.{RESET}\n"
+    )
+
+    print(f"{BOLD}🚀 Next Steps — Quick Commands:{RESET}")
+    print(
+        f"  {CYAN}post-once --no-headless{RESET}   {DIM}# Test publishing with a visible browser window{RESET}"
+    )
+    print(
+        f"  {CYAN}post-once{RESET}                 {DIM}# Publish a single post using saved settings{RESET}"
+    )
+    print(
+        f"  {CYAN}legal-post{RESET}                {DIM}# Start the continuous 24/7 autonomous loop{RESET}\n"
+    )
 
 
 def run_wizard() -> None:

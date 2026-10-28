@@ -145,6 +145,7 @@ USERNAME: str = os.getenv("MY_SITE_USERNAME", "")
 PASSWORD: str = os.getenv("MY_SITE_PASSWORD", "")
 BASE_URL: str = os.getenv("BASE_URL", "").rstrip("/")
 HEADLESS: bool = _to_bool(os.getenv("HEADLESS"), default=False)
+BROWSER_CHANNEL: str = os.getenv("BROWSER_CHANNEL", "").strip().lower()
 SESSION_FILE: str = os.getenv("SESSION_FILE", "session.json")
 HISTORY_FILE: str = os.getenv("HISTORY_FILE", "posted_history.txt")
 
@@ -166,7 +167,15 @@ HEALTHCHECK_URL: str = os.getenv("HEALTHCHECK_URL", "")
 
 def reload_config(custom_env_path: str | None = None) -> None:
     """Reloads environment variables, optionally from a custom .env file."""
-    global USERNAME, PASSWORD, GEMINI_API_KEY, BASE_URL, HEADLESS, SESSION_FILE, HISTORY_FILE
+    global \
+        USERNAME, \
+        PASSWORD, \
+        GEMINI_API_KEY, \
+        BASE_URL, \
+        HEADLESS, \
+        BROWSER_CHANNEL, \
+        SESSION_FILE, \
+        HISTORY_FILE
     global POST_INTERVAL_HOURS, ENABLE_JITTER, JITTER_MAX_MINUTES, MAX_RETRIES, RETRY_DELAY_SECONDS
     global AI_PROVIDER, AI_API_KEY, AI_MODEL, AI_BASE_URL
     global \
@@ -187,6 +196,7 @@ def reload_config(custom_env_path: str | None = None) -> None:
     PASSWORD = os.getenv("MY_SITE_PASSWORD", "")
     BASE_URL = os.getenv("BASE_URL", "").rstrip("/")
     HEADLESS = _to_bool(os.getenv("HEADLESS"), default=False)
+    BROWSER_CHANNEL = os.getenv("BROWSER_CHANNEL", "").strip().lower()
     SESSION_FILE = os.getenv("SESSION_FILE", "session.json")
     HISTORY_FILE = os.getenv("HISTORY_FILE", "posted_history.txt")
     POST_INTERVAL_HOURS = _to_float(os.getenv("POST_INTERVAL_HOURS"), default=4.0)
@@ -269,6 +279,8 @@ BASE_URL="https://your-target-platform.com"
 
 # 4. Browser Options
 HEADLESS=false
+# Optional: Use existing system Chrome or Edge to skip 200MB Chromium download (e.g. "chrome", "msedge")
+# BROWSER_CHANNEL="chrome"
 SESSION_FILE=session.json
 HISTORY_FILE=posted_history.txt
 

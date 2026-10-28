@@ -19,6 +19,7 @@ A complete, categorized cheat-sheet of all commands available in `legal-facts-po
 | **View Docker daemon logs** | `docker compose logs -f` |
 | **Stop Docker daemon** | `docker compose down` |
 | **Run interactive setup wizard** | `legal-config` *(or `legal-post --config`)* |
+| **Download/verify Chromium with retries** | `legal-post --install-browser` |
 | **Generate a `.env` template in current directory** | `legal-post --init-env` |
 
 ### Standalone Installation (`uv tool` / `pipx`)

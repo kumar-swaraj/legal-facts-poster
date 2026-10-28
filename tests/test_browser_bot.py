@@ -64,3 +64,34 @@ def test_ensure_authenticated_fails_when_stuck_on_login(monkeypatch):
 
     result = _ensure_authenticated(mock_page, mock_context)
     assert result is False
+
+
+def test_detect_system_browser():
+    from legal_facts_poster.browser_bot import detect_system_browser
+
+    browser = detect_system_browser()
+    # On macOS or Linux or Windows, returns string (e.g. 'chrome' / 'msedge') or None
+    assert browser in ("chrome", "msedge", "chromium", None)
+
+
+def test_install_browser_retry_logic(monkeypatch):
+    import subprocess
+    from unittest.mock import MagicMock
+
+    from legal_facts_poster.browser_bot import install_browser
+
+    calls = 0
+
+    def mock_run(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls < 2:
+            raise subprocess.CalledProcessError(1, "playwright install")
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+    success = install_browser(retries=3, timeout_seconds=10)
+    assert success is True
+    assert calls == 2

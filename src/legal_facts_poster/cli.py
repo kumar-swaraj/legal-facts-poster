@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from . import __version__
+from .browser_bot import install_browser
 from .config import (
     POST_INTERVAL_HOURS,
     init_env_template,
@@ -69,6 +70,11 @@ def parse_args():
         default=True,
         help="Skip the immediate first post and wait directly for the scheduled interval.",
     )
+    parser.add_argument(
+        "--install-browser",
+        action="store_true",
+        help="Download and install the Playwright Chromium browser with retry resilience.",
+    )
 
     return parser.parse_args()
 
@@ -107,6 +113,11 @@ def post_once_cli():
         default=None,
         help="Display the browser window while running.",
     )
+    parser.add_argument(
+        "--install-browser",
+        action="store_true",
+        help="Download and install the Playwright Chromium browser with retry resilience.",
+    )
 
     if len(sys.argv) > 1 and sys.argv[1] in ("config", "setup"):
         from .wizard import run_wizard
@@ -121,6 +132,10 @@ def post_once_cli():
 
         run_wizard()
         sys.exit(0)
+
+    if getattr(args, "install_browser", False):
+        ok = install_browser(retries=3)
+        sys.exit(0 if ok else 1)
 
     if args.init_env:
         print(init_env_template())
@@ -152,6 +167,10 @@ def main():
 
         run_wizard()
         sys.exit(0)
+
+    if getattr(args, "install_browser", False):
+        ok = install_browser(retries=3)
+        sys.exit(0 if ok else 1)
 
     if args.init_env:
         print(init_env_template())
